@@ -4,7 +4,8 @@ GENERAL:
   batch_size: 64
   resolution: &resolution [ 128, 128 ]
   channels: 3
-  max_epochs: 100
+  max_epochs: 1000
+  num_workers: 8
   data:
     train:
       default:
@@ -12,11 +13,14 @@ GENERAL:
     test:
       default:
         - ./datasets/apple2orange/test
+  net_init:
+    init_type: normal
+    init_gain: 0.02
 CUT:
   flip_equivariance: False
   lambda_GAN: 1.0
   lambda_NCE: 1.0
-  nce_layers: [ 0,4,8,12,16]
+  nce_layers: [ 0,4,8,12,16 ]
   nce_T: 0.07
   nce_idt: True
   mode: lsgan
@@ -29,31 +33,54 @@ CUT:
       padding_type: reflect
       no_antialias: False
       no_antialias_up: False
+    optimizer:
+      type: torch.optim.Adam
+      params:
+        lr: 0.001
+        betas: [ 0.5, 0.999 ]
+        weight_decay: 0.001
+    scheduler:
+      type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+      params:
+        T_0: 2000
+        T_mult: 2
+        eta_min: 0.0001
   netD:
     params:
       ndf: 64
       n_layers: 3
       no_antialias: False
       norm: batch
+    optimizer:
+      type: torch.optim.Adam
+      params:
+        lr: 0.001
+        betas: [ 0.5, 0.999 ]
+        weight_decay: 0.001
+    scheduler:
+      type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+      params:
+        T_0: 4000
+        T_mult: 2
+        eta_min: 0.0001
   netF:
     params:
       use_mlp: True
       nc: 256
       num_patches: 64
-      init_type: normal
-      init_gain: 0.02
-  optimizer:
-    type: torch.optim.Adam
-    params:
-      lr: 0.00005
-      betas: [ 0.5, 0.999 ]
-      weight_decay: 0.001
-  scheduler:
-    type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-    params:
-      T_0: 2000
-      T_mult: 2
-      eta_min: 0.00001
+    optimizer:
+      type: torch.optim.Adam
+      params:
+        lr: 0.0001
+        betas: [ 0.5, 0.999 ]
+        weight_decay: 0.001
+    scheduler:
+      type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+      params:
+        T_0: 2000
+        T_mult: 2
+        eta_min: 0.00001
+
 AUGMENTATION:
 #  RandomHorizontalFlip:
 #    origin: torchvision.transforms

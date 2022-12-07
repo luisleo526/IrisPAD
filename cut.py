@@ -8,7 +8,7 @@ from gan_utils import GANLoss, PatchNCELoss
 from netD import NLayerDiscriminator
 from netF import PatchSampleF
 from netG import ResnetGenerator
-from utils import get_class
+from utils import get_class, init_net
 
 
 def set_requires_grad(nets, requires_grad=False):
@@ -35,7 +35,7 @@ class CUT(nn.Module):
         channels = args.GENERAL.channels
         self.netG = ResnetGenerator(**args.CUT.netG.params, input_nc=channels, output_nc=channels)
         self.netD = NLayerDiscriminator(**args.CUT.netD.params, input_nc=channels)
-        self.netF = PatchSampleF(**args.CUT.netF.params)
+        self.netF = PatchSampleF(**args.CUT.netF.params, **args.GENERAL.net_init)
 
         self.criterionGAN = GANLoss(gan_mode=args.CUT.mode)
         self.criterionNCE = [PatchNCELoss(args.GENERAL.batch_size, args.CUT.nce_T) for _ in self.nce_layers]
@@ -59,7 +59,7 @@ class CUT(nn.Module):
 
         return total_nce_loss / n_layers
 
-    def forward(self, batch, update_gen):
+    def forward(self, batch, update_gen=True):
 
         self.real_A = batch["a"]
         self.real_B = batch["b"]
@@ -76,18 +76,23 @@ class CUT(nn.Module):
         if self.nce_idt:
             self.idt_B = self.fake[self.real_A.size(0):]
 
-        if not update_gen:
-            set_requires_grad(self.netD, True)
-            set_requires_grad(self.netG, False)
-            loss = self.netD_loss()
-        else:
-            set_requires_grad(self.netD, False)
-            set_requires_grad(self.netG, True)
-            loss = self.netG_loss()
-
         real_img = (0.5 * batch['a'] + 0.5).detach().cpu().float()
         fake_img = (0.5 * self.fake_B + 0.5).detach().cpu().float()
-        output = Munch(loss=loss, real=real_img, fake=fake_img)
+
+        loss_D = self.netD_loss()
+        loss_G, loss_F = self.netGF_loss()
+        output = Munch(lossG=loss_G, lossF=loss_F, lossD=loss_D, real=real_img, fake=fake_img)
+
+        # if not update_gen:
+        #     # set_requires_grad(self.netD, True)
+        #     # set_requires_grad(self.netG, False)
+        #     loss = self.netD_loss()
+        #     output = Munch(lossD=loss, real=real_img, fake=fake_img)
+        # else:
+        #     # set_requires_grad(self.netD, False)
+        #     # set_requires_grad(self.netG, True)
+        #     loss_G, loss_F = self.netGF_loss()
+        #     output = Munch(lossG=loss_G, lossF=loss_F, real=real_img, fake=fake_img)
 
         return output
 
@@ -106,7 +111,7 @@ class CUT(nn.Module):
 
         return loss
 
-    def netG_loss(self):
+    def netGF_loss(self):
 
         fake = self.fake_B
 
@@ -127,9 +132,7 @@ class CUT(nn.Module):
         else:
             loss_NCE_both = loss_NCE
 
-        loss = loss_G_GAN + loss_NCE_both
-
-        return loss
+        return loss_G_GAN, loss_NCE_both
 
 
 def get_networks(args, accelerator: Accelerator):
@@ -143,16 +146,21 @@ def get_networks(args, accelerator: Accelerator):
 
     optimizers = Munch()
     for net in ['netD', 'netG', 'netF']:
-        optim = get_class(args.CUT.optimizer.type)(getattr(model, net).parameters(), **args.CUT.optimizer.params)
-        scheduler = get_class(args.CUT.scheduler.type)(optim, **args.CUT.scheduler.params)
+        net_args = getattr(args.CUT, net)
+        optim = get_class(net_args.optimizer.type)(getattr(model, net).parameters(), **net_args.optimizer.params)
+        scheduler = get_class(net_args.scheduler.type)(optim, **net_args.scheduler.params)
         optimizers.update({net: Munch(optim=optim, scheduler=scheduler)})
 
+    model.netG = init_net(model.netG, **args.GENERAL.net_init)
+    model.netD = init_net(model.netD, **args.GENERAL.net_init)
+    model.netF = init_net(model.netF, **args.GENERAL.net_init)
     model.to(accelerator.device)
 
     model = accelerator.prepare_model(model)
     for net in ['netD', 'netG', 'netF']:
         optim, scheduler = getattr(optimizers, net).optim, getattr(optimizers, net).scheduler
         optim, scheduler = accelerator.prepare(optim, scheduler)
+        optim.zero_grad()
         getattr(optimizers, net).update(optim=optim, scheduler=scheduler)
 
     return model, optimizers

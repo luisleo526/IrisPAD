@@ -19,6 +19,7 @@ def get_hypers_config(args):
     hypers['netF.patches'] = args.CUT.netF.params.num_patches
     return hypers
 
+
 def get_class(x):
     module = x[:x.rfind(".")]
     obj = x[x.rfind(".") + 1:]

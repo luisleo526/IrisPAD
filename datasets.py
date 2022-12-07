@@ -13,7 +13,7 @@ from transforms import TransformFromPath
 
 
 def make_data_loader(args, accelerator: Accelerator):
-    paths = prepare_image_path(args, accelerator)
+    paths = prepare_image_path(args)
     dataloaders = Munch(train=Munch(), test=Munch())
 
     for mode in ['train', 'test']:
@@ -25,15 +25,18 @@ def make_data_loader(args, accelerator: Accelerator):
                 batch['image'].append(transform(path))
                 batch['path'].append(path)
                 batch['label'].append(label)
-            batch['image'] = torch.stack(batch['image']).to(accelerator.device)
-            batch['label'] = torch.tensor(batch['label'], device=accelerator.device)
+            batch['image'] = torch.stack(batch['image'])
+            batch['label'] = torch.tensor(batch['label'])
             return batch
 
         for name in args.GENERAL.data[mode]:
-            dataloaders[mode][name] = DataLoader(
+            dataloaders[mode][name] = accelerator.prepare_data_loader(DataLoader(
                 [[x, 0] for x in paths[mode][name].label_0] + [[x, 1] for x in paths[mode][name].label_1],
                 batch_size=args.GENERAL.batch_size,
-                collate_fn=collator)
+                collate_fn=collator,
+                num_workers=args.GENERAL.num_workers,
+                shuffle=True
+            ))
 
     return dataloaders
 
@@ -64,26 +67,21 @@ def make_gan_loader(args, a_path, b_path, accelerator: Accelerator):
                 batch['a'].append(transform(samples[2 * i]))
             else:
                 batch['b'].append(transform(samples[2 * i]))
-        batch['a'] = torch.stack(batch['a']).to(accelerator.device)
-        batch['b'] = torch.stack(batch['b']).to(accelerator.device)
+        batch['a'] = torch.stack(batch['a'])
+        batch['b'] = torch.stack(batch['b'])
         return batch
 
-    return DataLoader(ZipDataset(a_path + b_path), batch_size=1, collate_fn=collator)
+    return accelerator.prepare_data_loader(DataLoader(ZipDataset(a_path + b_path), batch_size=1, collate_fn=collator,
+                                                      shuffle=True, num_workers=args.GENERAL.num_workers))
 
 
-def prepare_image_path(args, acclerator: Accelerator):
+def prepare_image_path(args):
     paths = Munch(train=Munch(), test=Munch())
     for mode in ['train', 'test']:
         for name in args.GENERAL.data[mode]:
             paths[mode].update({name: Munch(label_0=[], label_1=[])})
             for path in args.GENERAL.data[mode][name]:
                 path_0, path_1 = path_by_label(path)
-
-                path_0 = partition_dataset(path_0, num_partitions=acclerator.num_processes, even_divisible=True,
-                                           drop_last=False, shuffle=False)[acclerator.process_index]
-                path_1 = partition_dataset(path_1, num_partitions=acclerator.num_processes, even_divisible=True,
-                                           drop_last=False, shuffle=False)[acclerator.process_index]
-
                 paths[mode][name].label_0 += path_0
                 paths[mode][name].label_1 += path_1
     return paths

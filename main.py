@@ -24,7 +24,6 @@ def parse_args():
 
 def main(args):
     ddp_kwargs = DistributedDataParallelKwargs()
-    ddp_kwargs.find_unused_parameters = True
     accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -37,36 +36,25 @@ def main(args):
         writer = SummaryWriter("./log", filename_suffix=args.GENERAL.name)
         writer.add_hparams(get_hypers_config(args), {})
 
-    paths = prepare_image_path(args, accelerator)
+    paths = prepare_image_path(args)
     loader = make_gan_loader(args, paths.train.default.label_0, paths.train.default.label_1, accelerator)
     model, optimizers = get_networks(args, accelerator)
 
     progress_bar = tqdm(range(args.GENERAL.max_epochs * len(loader)), disable=not accelerator.is_local_main_process)
 
     for epoch in range(args.GENERAL.max_epochs):
-        total_loss = Munch(netD=0, netGF=0)
+        total_loss = Munch(netD=0, netG=0, netF=0)
         for batch in loader:
             outputs = model(batch, False)
-            accelerator.backward(outputs.loss)
 
-            optimizers.netD.optim.step()
-            optimizers.netD.scheduler.step()
-            optimizers.netD.optim.zero_grad()
-
-            total_loss.netD += outputs.loss.item()
-
-            outputs = model(batch, True)
-            accelerator.backward(outputs.loss)
-
-            optimizers.netG.optim.step()
-            optimizers.netG.scheduler.step()
-            optimizers.netG.optim.zero_grad()
-
-            optimizers.netF.optim.step()
-            optimizers.netF.scheduler.step()
-            optimizers.netF.optim.zero_grad()
-
-            total_loss.netGF += outputs.loss.item()
+            accelerator.backward(outputs.lossD + outputs.lossG + outputs.lossF)
+            for net in ['netD', 'netG', 'netF']:
+                getattr(optimizers, net).optim.step()
+                getattr(optimizers, net).scheduler.step()
+                getattr(optimizers, net).optim.zero_grad()
+            total_loss.netG += outputs.lossG.item()
+            total_loss.netF += outputs.lossF.item()
+            total_loss.netD += outputs.lossD.item()
 
             if accelerator.sync_gradients:
                 progress_bar.update(1)
@@ -77,7 +65,8 @@ def main(args):
             writer.add_scalars("CUT Loss", dict(total_loss), global_step=epoch)
             writer.flush()
 
-    writer.close()
+    if accelerator.is_main_process:
+        writer.close()
 
 
 if __name__ == '__main__':
