@@ -6,7 +6,6 @@ from torch.nn import init
 def get_hypers_config(args):
     hypers = {}
     hypers['batch_size'] = args.GENERAL.batch_size
-    hypers['channels'] = args.GENERAL.channels
     hypers['lambda_GAN'] = args.CUT.lambda_GAN
     hypers['lambda_NCE'] = args.CUT.lambda_NCE
     hypers['nce_idt'] = args.CUT.nce_idt

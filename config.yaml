@@ -1,8 +1,8 @@
 GENERAL:
   name: apple2orange
+  rgb: False
   batch_size: 32
   resolution: &resolution [ 256, 256 ]
-  channels: 3
   max_epochs: 1000
   num_workers: 8
   data:
@@ -15,6 +15,26 @@ GENERAL:
   net_init:
     init_type: normal
     init_gain: 0.02
+
+CLASSIFIER:
+  model:
+    type: torchvision.models.efficientnet_b0
+    params:
+      num_classes: 2
+      weights: DEFAULT
+  optimizer:
+    type: monai.optimizers.Novograd
+    params:
+      amsgrad: True
+      lr: 5.0e-4
+      weight_decay: 0.001
+  scheduler:
+    type: torch.optim.lr_scheduler.CosineAnnealingLR
+    params:
+      T_0: 200
+      T_mult: 2
+      eta_min: 1.0e-6
+
 CUT:
   flip_equivariance: False
   lambda_GAN: 1.0
@@ -35,9 +55,9 @@ CUT:
     optimizer:
       type: torch.optim.AdamW
       params:
-        lr: 0.0005
+        lr: 5.0e-4
         betas: [ 0.75, 0.999 ]
-        weight_decay: 0.001
+        weight_decay: 1.0e-3
     scheduler:
       type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
       params:
@@ -53,9 +73,9 @@ CUT:
     optimizer:
       type: torch.optim.AdamW
       params:
-        lr: 0.0005
+        lr: 5.0e-4
         betas: [ 0.75, 0.999 ]
-        weight_decay: 0.001
+        weight_decay: 1.0e-3
     scheduler:
       type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
       params:
@@ -70,9 +90,9 @@ CUT:
     optimizer:
       type: torch.optim.AdamW
       params:
-        lr: 0.0002
+        lr: 2.0e-4
         betas: [ 0.75, 0.999 ]
-        weight_decay: 0.001
+        weight_decay: 1.0e-3
     scheduler:
       type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
       params:

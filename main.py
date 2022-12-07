@@ -2,13 +2,13 @@ import logging
 from argparse import ArgumentParser
 
 import yaml
-from accelerate import Accelerator, DistributedDataParallelKwargs
+from accelerate import Accelerator
 from accelerate.logging import get_logger
 from torch.utils.tensorboard import SummaryWriter
 from munch import Munch
 
 from utils import get_hypers_config
-from cut import get_networks
+from create_networks import get_all_networks
 from datasets import make_gan_loader, prepare_image_path
 from tqdm.auto import tqdm
 
@@ -23,8 +23,7 @@ def parse_args():
 
 
 def main(args):
-    ddp_kwargs = DistributedDataParallelKwargs()
-    accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
+    accelerator = Accelerator()
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
@@ -38,7 +37,7 @@ def main(args):
 
     paths = prepare_image_path(args)
     loader = make_gan_loader(args, paths.train.default.label_0, paths.train.default.label_1, accelerator)
-    model, optimizers = get_networks(args, accelerator)
+    nets = get_all_networks(args, accelerator)
 
     accelerator.wait_for_everyone()
 
@@ -47,13 +46,12 @@ def main(args):
     for epoch in range(args.GENERAL.max_epochs):
         total_loss = Munch(netD=0, netG=0, netF=0)
         for batch in loader:
-            outputs = model(batch, False)
-
+            outputs = nets.cut.model(batch)
             accelerator.backward(outputs.lossD + outputs.lossG + outputs.lossF)
             for net in ['netD', 'netG', 'netF']:
-                getattr(optimizers, net).optim.step()
-                getattr(optimizers, net).scheduler.step()
-                getattr(optimizers, net).optim.zero_grad()
+                getattr(nets.cut.optimizers, net).optim.step()
+                getattr(nets.cut.optimizers, net).scheduler.step()
+                getattr(nets.cut.optimizers, net).optim.zero_grad()
             total_loss.netG += outputs.lossG.item()
             total_loss.netF += outputs.lossF.item()
             total_loss.netD += outputs.lossD.item()

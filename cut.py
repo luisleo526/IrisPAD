@@ -32,7 +32,7 @@ class CUT(nn.Module):
         self.num_patches = args.CUT.netF.params.num_patches
         self.flip_equivariance = args.CUT.flip_equivariance
 
-        channels = args.GENERAL.channels
+        channels = 3
         self.netG = ResnetGenerator(**args.CUT.netG.params, input_nc=channels, output_nc=channels)
         self.netD = NLayerDiscriminator(**args.CUT.netD.params, input_nc=channels)
         self.netF = PatchSampleF(**args.CUT.netF.params, **args.GENERAL.net_init)
@@ -59,7 +59,7 @@ class CUT(nn.Module):
 
         return total_nce_loss / n_layers
 
-    def forward(self, batch, update_gen=True):
+    def forward(self, batch):
 
         self.real_A = batch["a"]
         self.real_B = batch["b"]
@@ -82,17 +82,6 @@ class CUT(nn.Module):
         loss_D = self.netD_loss()
         loss_G, loss_F = self.netGF_loss()
         output = Munch(lossG=loss_G, lossF=loss_F, lossD=loss_D, real=real_img, fake=fake_img)
-
-        # if not update_gen:
-        #     # set_requires_grad(self.netD, True)
-        #     # set_requires_grad(self.netG, False)
-        #     loss = self.netD_loss()
-        #     output = Munch(lossD=loss, real=real_img, fake=fake_img)
-        # else:
-        #     # set_requires_grad(self.netD, False)
-        #     # set_requires_grad(self.netG, True)
-        #     loss_G, loss_F = self.netGF_loss()
-        #     output = Munch(lossG=loss_G, lossF=loss_F, real=real_img, fake=fake_img)
 
         return output
 
@@ -135,14 +124,15 @@ class CUT(nn.Module):
         return loss_G_GAN, loss_NCE_both
 
 
-def get_networks(args, accelerator: Accelerator):
-    model = CUT(args)
+def get_gan_networks(args, accelerator: Accelerator):
+    model = CUT(args).to(accelerator.device)
 
     B = args.GENERAL.batch_size
     C = args.GENERAL.channels
     H, W = args.GENERAL.resolution
-    sample_batch = torch.rand(B, C, H, W)
+    sample_batch = torch.rand(B, C, H, W, device=accelerator.device)
     model.calculate_NCE_loss(sample_batch, sample_batch)
+    del sample_batch
 
     optimizers = Munch()
     for net in ['netD', 'netG', 'netF']:
@@ -154,7 +144,6 @@ def get_networks(args, accelerator: Accelerator):
     model.netG = init_net(model.netG, **args.GENERAL.net_init)
     model.netD = init_net(model.netD, **args.GENERAL.net_init)
     model.netF = init_net(model.netF, **args.GENERAL.net_init)
-    model.to(accelerator.device)
 
     model = accelerator.prepare_model(model)
     for net in ['netD', 'netG', 'netF']:
