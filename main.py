@@ -40,6 +40,8 @@ def main(args):
     loader = make_gan_loader(args, paths.train.default.label_0, paths.train.default.label_1, accelerator)
     model, optimizers = get_networks(args, accelerator)
 
+    accelerator.wait_for_everyone()
+
     progress_bar = tqdm(range(args.GENERAL.max_epochs * len(loader)), disable=not accelerator.is_local_main_process)
 
     for epoch in range(args.GENERAL.max_epochs):
