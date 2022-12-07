@@ -1,0 +1,73 @@
+GENERAL:
+  name: apple2orange
+  rgb: false
+  batch_size: 64
+  resolution: &resolution [ 128, 128 ]
+  channels: 3
+  max_epochs: 100
+  data:
+    train:
+      default:
+        - ./datasets/apple2orange/train
+    test:
+      default:
+        - ./datasets/apple2orange/test
+CUT:
+  flip_equivariance: False
+  lambda_GAN: 1.0
+  lambda_NCE: 1.0
+  nce_layers: [ 0,4,8,12,16]
+  nce_T: 0.07
+  nce_idt: True
+  mode: lsgan
+  netG:
+    params:
+      ngf: 64
+      norm: batch
+      use_dropout: False
+      n_blocks: 6
+      padding_type: reflect
+      no_antialias: False
+      no_antialias_up: False
+  netD:
+    params:
+      ndf: 64
+      n_layers: 3
+      no_antialias: False
+      norm: batch
+  netF:
+    params:
+      use_mlp: True
+      nc: 256
+      num_patches: 64
+      init_type: normal
+      init_gain: 0.02
+  optimizer:
+    type: torch.optim.Adam
+    params:
+      lr: 0.00005
+      betas: [ 0.5, 0.999 ]
+      weight_decay: 0.001
+  scheduler:
+    type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    params:
+      T_0: 2000
+      T_mult: 2
+      eta_min: 0.00001
+AUGMENTATION:
+#  RandomHorizontalFlip:
+#    origin: torchvision.transforms
+#    params:
+#      p: 0.5
+#  RandomVerticalFlip:
+#    origin: torchvision.transforms
+#    params:
+#      p: 0.5
+#  RandomResizedCrop:
+#    origin: torchvision.transforms
+#    params:
+#      size: *resolution
+#      scale: !!python/tuple [ 0.6, 0.95 ]
+
+
+
