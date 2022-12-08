@@ -1,41 +1,90 @@
 GENERAL:
   name: apple2orange
   rgb: False
-  batch_size: 32
-  resolution: &resolution [ 256, 256 ]
+  resolution: &resolution [ 128, 128 ]
   max_epochs: 1000
-  num_workers: 8
+  pad_token_id: -1
   data:
     train:
-      default:
-        - ./datasets/apple2orange/train
+      IIIT_WVU:
+        config:
+          skip: False
+        paths:
+          - /data/dataset/LivDet2017/IIIT_WVU/train
+#      Clarkson:
+#        config:
+#          skip: True
+#        paths:
+#          - /data/dataset/LivDet2017/Clarkson/train
+#      NotreDame:
+#        config:
+#          skip: True
+#        paths:
+#          - /data/dataset/LivDet2017/NotreDame/train
     test:
-      default:
-        - ./datasets/apple2orange/test
+      Clarkson:
+        config:
+          gan: True
+        paths:
+          - /data/dataset/LivDet2017/Clarkson/test
+      IIIT_WVU:
+        config:
+          gan: True
+        paths:
+          - /data/dataset/LivDet2017/IIIT_WVU/test
+      NotreDame:
+        config:
+          gan: True
+        paths:
+          - /data/dataset/LivDet2017/NotreDame/test
   net_init:
     init_type: normal
     init_gain: 0.02
 
 CLASSIFIER:
+  batch_size: 64
+  warmup: 20
   model:
     type: torchvision.models.efficientnet_b0
     params:
-      num_classes: 2
       weights: DEFAULT
+    replacements:
+      -
+        name: "features.0.0"
+        type: torch.nn.Conv2d
+        params:
+          in_channels: 1
+          out_channels: 32
+          kernel_size: 3
+          stride: 2
+          padding: 1
+          bias: False
+      -
+        name: "classifier.1"
+        type: torch.nn.Linear
+        params:
+          in_features: 1280
+          out_features: 2
+          bias: True
   optimizer:
     type: monai.optimizers.Novograd
     params:
       amsgrad: True
-      lr: 5.0e-4
-      weight_decay: 0.001
+      lr: 1.0e-3
+      weight_decay: 1.0e-3
   scheduler:
-    type: torch.optim.lr_scheduler.CosineAnnealingLR
+    type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
     params:
-      T_0: 200
+      T_0: 2000
       T_mult: 2
-      eta_min: 1.0e-6
+      eta_min: 1.0e-5
 
 CUT:
+  batch_size: 32
+  apply: True
+  iterative: True
+  update_freq: 5
+  warmup: 20
   flip_equivariance: False
   lambda_GAN: 1.0
   lambda_NCE: 1.0
@@ -53,17 +102,17 @@ CUT:
       no_antialias: False
       no_antialias_up: False
     optimizer:
-      type: torch.optim.AdamW
+      type: torch.optim.Adam
       params:
         lr: 5.0e-4
-        betas: [ 0.75, 0.999 ]
+        betas: [ 0.5, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
       type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
       params:
         T_0: 2500
         T_mult: 2
-        eta_min: 0.00005
+        eta_min: 5.0e-4
   netD:
     params:
       ndf: 64
@@ -71,7 +120,7 @@ CUT:
       no_antialias: False
       norm: batch
     optimizer:
-      type: torch.optim.AdamW
+      type: torch.optim.Adam
       params:
         lr: 5.0e-4
         betas: [ 0.75, 0.999 ]
@@ -81,14 +130,14 @@ CUT:
       params:
         T_0: 2500
         T_mult: 2
-        eta_min: 0.00005
+        eta_min: 5.0e-4
   netF:
     params:
       use_mlp: True
       nc: 256
       num_patches: 64
     optimizer:
-      type: torch.optim.AdamW
+      type: torch.optim.Adam
       params:
         lr: 2.0e-4
         betas: [ 0.75, 0.999 ]
@@ -98,7 +147,7 @@ CUT:
       params:
         T_0: 2500
         T_mult: 2
-        eta_min: 0.00002
+        eta_min: 2.0e-4
 
 AUGMENTATION:
   RandomHorizontalFlip:

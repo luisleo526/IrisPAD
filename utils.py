@@ -1,11 +1,24 @@
+import functools
 from importlib import import_module
 
 from torch.nn import init
 
 
+def rgetattr(obj, attr, *args):
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+
+    return functools.reduce(_getattr, [obj] + attr.split('.'))
+
+
+def rsetattr(obj, attr, val):
+    pre, _, post = attr.rpartition('.')
+    return setattr(rgetattr(obj, pre) if pre else obj, post, val)
+
+
 def get_hypers_config(args):
     hypers = {}
-    hypers['batch_size'] = args.GENERAL.batch_size
+    # hypers['batch_size'] = args.GENERAL.batch_size
     hypers['lambda_GAN'] = args.CUT.lambda_GAN
     hypers['lambda_NCE'] = args.CUT.lambda_NCE
     hypers['nce_idt'] = args.CUT.nce_idt

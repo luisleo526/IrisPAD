@@ -6,12 +6,13 @@ from importlib import import_module
 class TransformFromPath(object):
     def __init__(self, args, use_augmentation=False):
 
+        channels = 3 if args.GENERAL.rgb else 1
         transforms = [ToTensor()]
-        if args.GENERAL.rgb:
-            transforms.append(Grayscale(num_output_channels=3))
+        if not args.GENERAL.rgb:
+            transforms.append(Grayscale(num_output_channels=1))
 
         transforms.append(Resize(args.GENERAL.resolution))
-        transforms.append(Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5], False))
+        transforms.append(Normalize([0.5 for _ in range(channels)], [0.5 for _ in range(channels)], False))
         if use_augmentation:
             try:
                 for transform in args.AUGMENTATION.keys():

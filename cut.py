@@ -32,13 +32,13 @@ class CUT(nn.Module):
         self.num_patches = args.CUT.netF.params.num_patches
         self.flip_equivariance = args.CUT.flip_equivariance
 
-        channels = 3
+        channels = 3 if args.GENERAL.rgb else 1
         self.netG = ResnetGenerator(**args.CUT.netG.params, input_nc=channels, output_nc=channels)
         self.netD = NLayerDiscriminator(**args.CUT.netD.params, input_nc=channels)
         self.netF = PatchSampleF(**args.CUT.netF.params, **args.GENERAL.net_init)
 
         self.criterionGAN = GANLoss(gan_mode=args.CUT.mode)
-        self.criterionNCE = [PatchNCELoss(args.GENERAL.batch_size, args.CUT.nce_T) for _ in self.nce_layers]
+        self.criterionNCE = [PatchNCELoss(args.CUT.batch_size, args.CUT.nce_T) for _ in self.nce_layers]
 
     def calculate_NCE_loss(self, src, tgt):
 
@@ -85,6 +85,9 @@ class CUT(nn.Module):
 
         return output
 
+    def a2b(self, images):
+        return self.netG(images)
+
     def netD_loss(self):
 
         fake = self.fake_B.detach()
@@ -127,9 +130,9 @@ class CUT(nn.Module):
 def get_gan_networks(args, accelerator: Accelerator):
     model = CUT(args).to(accelerator.device)
 
-    B = args.GENERAL.batch_size
-    C = args.GENERAL.channels
+    B = args.CUT.batch_size
     H, W = args.GENERAL.resolution
+    C = 3 if args.GENERAL.rgb else 1
     sample_batch = torch.rand(B, C, H, W, device=accelerator.device)
     model.calculate_NCE_loss(sample_batch, sample_batch)
     del sample_batch

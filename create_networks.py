@@ -6,7 +6,13 @@ from munch import Munch
 
 def get_all_networks(args, accelerator: Accelerator):
     classifier, classifier_optim = get_classifier_networks(args, accelerator)
-    cut, cut_optim = get_gan_networks(args, accelerator)
-    net = Munch(cut=Munch(model=classifier, optimizers=classifier_optim),
-                classifier=Munch(model=cut, optimizers=cut_optim))
+    net = Munch(classifier=Munch(model=classifier, optimizers=classifier_optim))
+
+    if args.CUT.apply:
+        cut, cut_optim = get_gan_networks(args, accelerator)
+        net.update(cut=Munch(model=cut, optimizers=cut_optim))
+        if args.CUT.iterative:
+            cut2, cut_optim2 = get_gan_networks(args, accelerator)
+            net.update(cut2=Munch(model=cut2, optimizers=cut_optim2))
+
     return net

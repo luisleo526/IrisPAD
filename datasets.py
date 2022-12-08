@@ -3,17 +3,18 @@ import math
 
 import torch
 from accelerate import Accelerator
+from monai.data import ThreadDataLoader
 from monai.data import ZipDataset
 from monai.data.utils import partition_dataset, resample_datalist
 from munch import Munch
-from torch.utils.data import DataLoader
 from torchvision.datasets.folder import find_classes, make_dataset
 
 from transforms import TransformFromPath
+from vocab import Vocab
 
 
 def make_data_loader(args, accelerator: Accelerator):
-    paths = prepare_image_path(args)
+    paths, vocab = prepare_image_path(args)
     dataloaders = Munch(train=Munch(), test=Munch())
 
     for mode in ['train', 'test']:
@@ -23,26 +24,28 @@ def make_data_loader(args, accelerator: Accelerator):
             batch = {'image': [], 'label': [], 'path': []}
             for path, label in samples:
                 batch['image'].append(transform(path))
-                batch['path'].append(path)
+                batch['path'].append(vocab.word2index(path))
                 batch['label'].append(label)
             batch['image'] = torch.stack(batch['image'])
             batch['label'] = torch.tensor(batch['label'])
+            batch['path'] = torch.tensor(batch['path'], dtype=torch.int32)
             return batch
 
         for name in args.GENERAL.data[mode]:
-            dataloaders[mode][name] = accelerator.prepare_data_loader(DataLoader(
+            dataloaders[mode].update({name: Munch()})
+            dataloaders[mode][name].update(dl=accelerator.prepare_data_loader(ThreadDataLoader(
                 [[x, 0] for x in paths[mode][name].label_0] + [[x, 1] for x in paths[mode][name].label_1],
-                batch_size=args.GENERAL.batch_size,
+                batch_size=args.CLASSIFIER.batch_size,
                 collate_fn=collator,
-                num_workers=args.GENERAL.num_workers,
                 shuffle=True
-            ))
+            )))
+            dataloaders[mode][name].update(config=args.GENERAL.data[mode][name].config)
 
-    return dataloaders
+    return dataloaders, paths, vocab
 
 
 def make_gan_loader(args, a_path, b_path, accelerator: Accelerator):
-    batch_size = args.GENERAL.batch_size
+    batch_size = args.CUT.batch_size
     a_path = [[x, 0] for x in a_path]
     b_path = [[x, 1] for x in b_path]
     a_bs = round(batch_size * len(a_path) / (len(a_path) + len(b_path)))
@@ -71,20 +74,24 @@ def make_gan_loader(args, a_path, b_path, accelerator: Accelerator):
         batch['b'] = torch.stack(batch['b'])
         return batch
 
-    return accelerator.prepare_data_loader(DataLoader(ZipDataset(a_path + b_path), batch_size=1, collate_fn=collator,
-                                                      shuffle=True, num_workers=args.GENERAL.num_workers))
+    return accelerator.prepare_data_loader(
+        ThreadDataLoader(ZipDataset(a_path + b_path), batch_size=1, collate_fn=collator,
+                         shuffle=True))
 
 
 def prepare_image_path(args):
     paths = Munch(train=Munch(), test=Munch())
+    vocab = Vocab()
     for mode in ['train', 'test']:
         for name in args.GENERAL.data[mode]:
             paths[mode].update({name: Munch(label_0=[], label_1=[])})
-            for path in args.GENERAL.data[mode][name]:
+            for path in args.GENERAL.data[mode][name].paths:
                 path_0, path_1 = path_by_label(path)
+                vocab.word2index(path_0 + path_1, True)
                 paths[mode][name].label_0 += path_0
                 paths[mode][name].label_1 += path_1
-    return paths
+            paths[mode][name].update(config=args.GENERAL.data[mode][name].config)
+    return paths, vocab
 
 
 def path_by_label(image_folder):
