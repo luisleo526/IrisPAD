@@ -11,16 +11,16 @@ GENERAL:
           skip: False
         paths:
           - /data/dataset/LivDet2017/IIIT_WVU/train
-#      Clarkson:
-#        config:
-#          skip: True
-#        paths:
-#          - /data/dataset/LivDet2017/Clarkson/train
-#      NotreDame:
-#        config:
-#          skip: True
-#        paths:
-#          - /data/dataset/LivDet2017/NotreDame/train
+    #      Clarkson:
+    #        config:
+    #          skip: True
+    #        paths:
+    #          - /data/dataset/LivDet2017/Clarkson/train
+    #      NotreDame:
+    #        config:
+    #          skip: True
+    #        paths:
+    #          - /data/dataset/LivDet2017/NotreDame/train
     test:
       Clarkson:
         config:
@@ -49,8 +49,7 @@ CLASSIFIER:
     params:
       weights: DEFAULT
     replacements:
-      -
-        name: "features.0.0"
+      - name: "features.0.0"
         type: torch.nn.Conv2d
         params:
           in_channels: 1
@@ -59,8 +58,7 @@ CLASSIFIER:
           stride: 2
           padding: 1
           bias: False
-      -
-        name: "classifier.1"
+      - name: "classifier.1"
         type: torch.nn.Linear
         params:
           in_features: 1280
@@ -70,14 +68,14 @@ CLASSIFIER:
     type: monai.optimizers.Novograd
     params:
       amsgrad: True
-      lr: 1.0e-3
+      lr: 3.0e-3
       weight_decay: 1.0e-3
   scheduler:
-    type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
     params:
-      T_0: 2000
-      T_mult: 2
-      eta_min: 1.0e-5
+      num_cycles: 5
+      num_warmup_steps: 1000
+      num_training_steps: -1
 
 CUT:
   batch_size: 32
@@ -102,17 +100,16 @@ CUT:
       no_antialias: False
       no_antialias_up: False
     optimizer:
-      type: torch.optim.Adam
+      type: monai.optimizers.Novograd
       params:
         lr: 5.0e-4
         betas: [ 0.5, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+      type: transformers.get_cosine_schedule_with_warmup
       params:
-        T_0: 2500
-        T_mult: 2
-        eta_min: 5.0e-4
+        num_warmup_steps: 1000
+        num_training_steps: -1
   netD:
     params:
       ndf: 64
@@ -120,34 +117,32 @@ CUT:
       no_antialias: False
       norm: batch
     optimizer:
-      type: torch.optim.Adam
+      type: monai.optimizers.Novograd
       params:
         lr: 5.0e-4
-        betas: [ 0.75, 0.999 ]
+        betas: [ 0.5, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+      type: transformers.get_cosine_schedule_with_warmup
       params:
-        T_0: 2500
-        T_mult: 2
-        eta_min: 5.0e-4
+        num_warmup_steps: 1000
+        num_training_steps: -1
   netF:
     params:
       use_mlp: True
       nc: 256
       num_patches: 64
     optimizer:
-      type: torch.optim.Adam
+      type: monai.optimizers.Novograd
       params:
         lr: 2.0e-4
-        betas: [ 0.75, 0.999 ]
+        betas: [ 0.5, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+      type: transformers.get_cosine_schedule_with_warmup
       params:
-        T_0: 2500
-        T_mult: 2
-        eta_min: 2.0e-4
+        num_warmup_steps: 1000
+        num_training_steps: -1
 
 AUGMENTATION:
   RandomHorizontalFlip:

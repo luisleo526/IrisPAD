@@ -12,9 +12,9 @@ from typing import Optional
 
 def run(args, paths_from_train, num_epoch: int, step: int,
         accelerator: Accelerator, writer: Optional[SummaryWriter], nets, loaders, vocab: Vocab,
-        use_gan: bool, iterative: bool, warmup: bool, train_gan: bool):
+        use_gan: bool, iterative: bool, warmup: bool, train_gan: bool, tqdm_no_progress: bool):
     pad_token_id = args.GENERAL.pad_token_id
-    for _ in tqdm(range(num_epoch), disable=not accelerator.is_local_main_process):
+    for _ in tqdm(range(num_epoch), disable=tqdm_no_progress):
         step += 1
         metrics = ISOMetrics()
         results = Munch()
