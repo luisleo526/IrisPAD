@@ -26,6 +26,29 @@ def run(args, paths_from_train, num_epoch: int, step: int,
         for name, loader in loaders.train.items():
             if (not loader.config.skip and not warmup) or warmup:
                 for batch in loader.dl:
+                    if not warmup and use_gan:
+                        with torch.no_grad():
+                            if iterative:
+                                label_0_images = batch['image'][batch['label'] == 0]
+                                label_0_paths = batch['path'][batch['label'] == 0]
+                                label_0_images = accelerator.unwrap_model(nets.cut.model).a2b(label_0_images)
+                                label_1_images = batch['image'][batch['label'] == 1]
+                                label_1_paths = batch['path'][batch['label'] == 1]
+                                label_1_images = accelerator.unwrap_model(nets.cut2.model).a2b(label_1_images)
+                                new_images = torch.cat([label_0_images, label_1_images], dim=0)
+                                new_paths = torch.cat([label_0_paths, label_1_paths], dim=0)
+                                new_labels = torch.cat(
+                                    [batch['label'][batch['label'] == 0], batch['label'][batch['label'] == 1]], dim=0)
+                            else:
+                                new_images = accelerator.unwrap_model(nets.cut.model).a2b(batch['image'])
+                                new_labels = batch['labels']
+                                new_paths = batch['path']
+                        mask = torch.rand(new_labels.shape, device=accelerator.device) < args.CUT.flip_prob
+                        new_labels[mask] = 1 - new_labels[mask]
+                        batch["image"] = torch.cat([batch["image"], new_images])
+                        batch["label"] = torch.cat([batch["label"], new_labels])
+                        batch["path"] = torch.cat([batch["path"], new_paths])
+
                     outputs = nets.classifier.model(batch)
                     accelerator.backward(outputs.loss)
                     nets.classifier.optimizers.optim.step()
@@ -35,28 +58,6 @@ def run(args, paths_from_train, num_epoch: int, step: int,
                     pred, tgt, loss = accelerator.gather_for_metrics(
                         (outputs.pred, batch['label'], outputs.loss.detach()))
                     metrics(pred, tgt, loss)
-
-                    if not warmup and use_gan:
-                        new_images = []
-                        with torch.no_grad():
-                            if iterative:
-                                new_images.append(
-                                    accelerator.unwrap_model(nets.cut.model).a2b(batch['image'][batch['label'] == 0]))
-                                new_images.append(
-                                    accelerator.unwrap_model(nets.cut2.model).a2b(batch['image'][batch['label'] == 1]))
-                            else:
-                                new_images.append(
-                                    accelerator.unwrap_model(nets.cut.model).a2b(batch['image']))
-                        batch['image'] = torch.cat(new_images)
-                        outputs = nets.classifier.model(batch)
-                        accelerator.backward(outputs.loss)
-                        nets.classifier.optimizers.optim.step()
-                        nets.classifier.optimizers.optim.zero_grad()
-                        nets.classifier.optimizers.scheduler.step()
-
-                        pred, tgt, loss = accelerator.gather_for_metrics(
-                            (outputs.pred, batch['label'], outputs.loss.detach()))
-                        metrics(pred, tgt, loss)
 
                 for key, value in metrics.aggregate().items():
                     results[key].update({name + '_TRAIN': value})

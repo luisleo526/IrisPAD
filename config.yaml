@@ -1,7 +1,8 @@
 GENERAL:
-  name: apple2orange
+  name: IPAD
+  seed: 47
   rgb: False
-  resolution: &resolution [ 256, 256 ]
+  resolution: &resolution [ 128, 128 ]
   max_epochs: 1000
   pad_token_id: -1
   data:
@@ -83,7 +84,8 @@ CLASSIFIER:
       num_training_steps: -1
 
 CUT:
-  batch_size: 16
+  flip_prob: 0.2
+  batch_size: 32
   apply: True
   iterative: True
   update_freq: 5
@@ -140,7 +142,7 @@ CUT:
     optimizer:
       type: monai.optimizers.Novograd
       params:
-        lr: 2.0e-4
+        lr: 1.0e-3
         betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:

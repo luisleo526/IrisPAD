@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 
 import yaml
 from accelerate import Accelerator
+from accelerate.utils import set_seed
 from accelerate.logging import get_logger
 from munch import Munch
 from torch.utils.tensorboard import SummaryWriter
@@ -23,6 +24,8 @@ def parse_args():
 
 
 def main(args):
+    set_seed(args.GENERAL.seed)
+
     use_gan = args.CUT.apply
     iterative = args.CUT.iterative
 
