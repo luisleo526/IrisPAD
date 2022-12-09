@@ -29,6 +29,7 @@ class Classifier(nn.Module):
 
 def get_classifier_networks(args, accelerator: Accelerator):
     model = Classifier(args).to(accelerator.device)
+    # model = torch.compile(model, mode="reduce-overhead")
     optimizer = get_class(args.CLASSIFIER.optimizer.type)(model.parameters(), **args.CLASSIFIER.optimizer.params)
     scheduler = get_class(args.CLASSIFIER.scheduler.type)(optimizer, **args.CLASSIFIER.scheduler.params)
     model, optimizer, scheduler = accelerator.prepare([model, optimizer, scheduler])

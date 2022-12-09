@@ -1,10 +1,11 @@
 import logging
 from argparse import ArgumentParser
 
+import torch
 import yaml
 from accelerate import Accelerator
-from accelerate.utils import set_seed
 from accelerate.logging import get_logger
+from accelerate.utils import set_seed
 from munch import Munch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
