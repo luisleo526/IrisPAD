@@ -1,49 +1,54 @@
 GENERAL:
   name: apple2orange
   rgb: False
-  resolution: &resolution [ 128, 128 ]
+  resolution: &resolution [ 256, 256 ]
   max_epochs: 1000
   pad_token_id: -1
   data:
     train:
+#      IrisCSD:
+#        config:
+#          skip: True
+#        paths:
+#          - /data/dataset/IrisCSD
       IIIT_WVU:
         config:
           skip: False
         paths:
           - /data/dataset/LivDet2017/IIIT_WVU/train
-    #      Clarkson:
-    #        config:
-    #          skip: True
-    #        paths:
-    #          - /data/dataset/LivDet2017/Clarkson/train
-    #      NotreDame:
-    #        config:
-    #          skip: True
-    #        paths:
-    #          - /data/dataset/LivDet2017/NotreDame/train
+#      Clarkson:
+#        config:
+#          skip: True
+#        paths:
+#          - /data/dataset/LivDet2017/Clarkson/train
+#      NotreDame:
+#        config:
+#          skip: True
+#        paths:
+#          - /data/dataset/LivDet2017/NotreDame/train
     test:
-      Clarkson:
-        config:
-          gan: True
-        paths:
-          - /data/dataset/LivDet2017/Clarkson/test
+#      Clarkson:
+#        config:
+#          gan: True
+#        paths:
+#          - /data/dataset/LivDet2017/Clarkson/test
       IIIT_WVU:
         config:
           gan: True
         paths:
           - /data/dataset/LivDet2017/IIIT_WVU/test
-      NotreDame:
-        config:
-          gan: True
-        paths:
-          - /data/dataset/LivDet2017/NotreDame/test
+#      NotreDame:
+#        config:
+#          gan: True
+#        paths:
+#          - /data/dataset/LivDet2017/NotreDame/test
   net_init:
     init_type: normal
     init_gain: 0.02
 
 CLASSIFIER:
   batch_size: 64
-  warmup: 20
+  warmup: 40
   model:
     type: torchvision.models.efficientnet_b0
     params:
@@ -67,7 +72,7 @@ CLASSIFIER:
   optimizer:
     type: monai.optimizers.Novograd
     params:
-      amsgrad: True
+      amsgrad: False
       lr: 3.0e-3
       weight_decay: 1.0e-3
   scheduler:
@@ -78,24 +83,24 @@ CLASSIFIER:
       num_training_steps: -1
 
 CUT:
-  batch_size: 32
+  batch_size: 16
   apply: True
   iterative: True
   update_freq: 5
   warmup: 20
   flip_equivariance: False
   lambda_GAN: 1.0
-  lambda_NCE: 1.0
-  nce_layers: [ 0,4,8,12,16 ]
+  lambda_NCE: 10.0
+  nce_layers: [ 0,4,8,12,16,20 ]
   nce_T: 0.07
   nce_idt: True
   mode: lsgan
   netG:
     params:
-      ngf: 64
+      ngf: 128
       norm: batch
       use_dropout: False
-      n_blocks: 9
+      n_blocks: 6
       padding_type: reflect
       no_antialias: False
       no_antialias_up: False
@@ -103,7 +108,7 @@ CUT:
       type: monai.optimizers.Novograd
       params:
         lr: 5.0e-4
-        betas: [ 0.5, 0.999 ]
+        betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
       type: transformers.get_cosine_schedule_with_warmup
@@ -112,7 +117,7 @@ CUT:
         num_training_steps: -1
   netD:
     params:
-      ndf: 64
+      ndf: 128
       n_layers: 3
       no_antialias: False
       norm: batch
@@ -120,7 +125,7 @@ CUT:
       type: monai.optimizers.Novograd
       params:
         lr: 5.0e-4
-        betas: [ 0.5, 0.999 ]
+        betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
       type: transformers.get_cosine_schedule_with_warmup
@@ -131,12 +136,12 @@ CUT:
     params:
       use_mlp: True
       nc: 256
-      num_patches: 64
+      num_patches: 128
     optimizer:
       type: monai.optimizers.Novograd
       params:
         lr: 2.0e-4
-        betas: [ 0.5, 0.999 ]
+        betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
       type: transformers.get_cosine_schedule_with_warmup

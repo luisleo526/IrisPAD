@@ -6,12 +6,11 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 from munch import Munch
 from torch.utils.tensorboard import SummaryWriter
+from tqdm.auto import tqdm
 
 from create_networks import get_all_networks
 from datasets import make_data_loader
 from trainer import run
-from utils import get_hypers_config
-from tqdm.auto import tqdm
 
 logger = get_logger(__name__)
 

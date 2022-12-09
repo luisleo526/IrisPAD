@@ -134,7 +134,8 @@ def get_gan_networks(args, accelerator: Accelerator):
     H, W = args.GENERAL.resolution
     C = 3 if args.GENERAL.rgb else 1
     sample_batch = torch.rand(B, C, H, W, device=accelerator.device)
-    model.calculate_NCE_loss(sample_batch, sample_batch)
+    with torch.no_grad():
+        model.calculate_NCE_loss(sample_batch, sample_batch)
     del sample_batch
 
     optimizers = Munch()
