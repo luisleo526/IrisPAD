@@ -25,6 +25,7 @@ def parse_args():
 
 
 def main(args):
+    torch.set_float32_matmul_precision('high')
     set_seed(args.GENERAL.seed)
 
     use_gan = args.CUT.apply
@@ -67,7 +68,6 @@ def main(args):
     nets = get_all_networks(args, accelerator)
     accelerator.wait_for_everyone()
 
-    # warmup classifier
     logger.info(" *** Start warmup classifier *** ")
     step = run(args, paths_from_train, args.CLASSIFIER.warmup, -1, accelerator, writer, nets, loaders, vocab, use_gan,
                iterative, warmup=True, train_gan=False, tqdm_no_progress=not accelerator.is_local_main_process)

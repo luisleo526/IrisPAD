@@ -17,6 +17,7 @@ def run(args, paths_from_train, num_epoch: int, step: int,
     for _ in tqdm(range(num_epoch), disable=tqdm_no_progress):
         step += 1
         metrics = ISOMetrics()
+
         results = Munch()
         for key in metrics.aggregate().keys():
             results.update({key: Munch()})
@@ -60,7 +61,16 @@ def run(args, paths_from_train, num_epoch: int, step: int,
                     metrics(pred, tgt, loss)
 
                 for key, value in metrics.aggregate().items():
-                    results[key].update({name + '_TRAIN': value})
+                    results[key].update({name: value})
+
+        if accelerator.is_main_process:
+            for key, value in results.items():
+                writer.add_scalars(f"TRAIN/{key}", dict(value), global_step=step)
+            writer.flush()
+
+        results = Munch()
+        for key in metrics.aggregate().keys():
+            results.update({key: Munch()})
 
         # test classifier
         nets.classifier.model.eval()
@@ -85,11 +95,11 @@ def run(args, paths_from_train, num_epoch: int, step: int,
                         paths_from_test.label_1.extend(label_1[label_1 != pad_token_id].tolist())
 
             for key, value in metrics.aggregate().items():
-                results[key].update({name + '_TEST': value})
+                results[key].update({name: value})
 
         if accelerator.is_main_process:
             for key, value in results.items():
-                writer.add_scalars(key, dict(value), global_step=step)
+                writer.add_scalars(f"TEST/{key}", dict(value), global_step=step)
             writer.flush()
 
         if use_gan and train_gan:
@@ -111,6 +121,7 @@ def run(args, paths_from_train, num_epoch: int, step: int,
                                 )
 
             # train gan
+            cut_labels = dict(cut="Label 0" if iterative else "cut", cut2="Label 1")
             results = Munch()
             for name, loader in gan_lds.items():
                 results.update({name: Munch(lossG=0, lossD=0, lossF=0)})
@@ -129,13 +140,13 @@ def run(args, paths_from_train, num_epoch: int, step: int,
                         nets[name].optimizers[net].optim.zero_grad()
                         nets[name].optimizers[net].scheduler.step()
                 if accelerator.is_main_process:
-                    writer.add_images("Real Images: " + name, outputs.real, global_step=step)
-                    writer.add_images("Fake Images: " + name, outputs.fake, global_step=step)
+                    writer.add_images(f"{cut_labels[name]}/RealImages", outputs.real, global_step=step)
+                    writer.add_images(f"{cut_labels[name]}/FakeImages", outputs.fake, global_step=step)
                     writer.flush()
 
             if accelerator.is_main_process:
                 for key, value in results.items():
-                    writer.add_scalars(key + " losses", dict(value), global_step=step)
+                    writer.add_scalars(f"CUT/{cut_labels[key]}_losses", dict(value), global_step=step)
                 writer.flush()
 
     return step
