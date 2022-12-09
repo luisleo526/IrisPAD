@@ -7,53 +7,71 @@ GENERAL:
   pad_token_id: -1
   data:
     train:
-#      IrisCSD:
-#        config:
-#          skip: True
-#        paths:
-#          - /data/dataset/IrisCSD
-      IIIT_WVU:
+      PreTraining:
+        config:
+          skip: True
+          selftraing: True
+        paths:
+          - /data/dataset/IrisCSD
+          - /data/dataset/ND_CLD_2015
+          - /data/dataset/ND_Contact_2010
+      SelfTraining:
         config:
           skip: False
+          selftraing: True
+        paths:
+          - /data/dataset/LivDet2017/Clarkson/train
+#          - /data/dataset/LivDet2017/IIIT_WVU/train
+          - /data/dataset/LivDet2017/NotreDame/train
+          - /data/dataset/LivDet2017/Clarkson/test
+          - /data/dataset/LivDet2017/IIIT_WVU/test
+          - /data/dataset/LivDet2017/NotreDame/test
+      IIIT_WVU:
+        config:
+          skip: True
+          selftraing: False
         paths:
           - /data/dataset/LivDet2017/IIIT_WVU/train
 #      Clarkson:
 #        config:
 #          skip: True
+#          selftraing: False
 #        paths:
 #          - /data/dataset/LivDet2017/Clarkson/train
 #      NotreDame:
 #        config:
 #          skip: True
+#          selftraing: False
 #        paths:
 #          - /data/dataset/LivDet2017/NotreDame/train
     test:
-#      Clarkson:
-#        config:
-#          gan: True
-#        paths:
-#          - /data/dataset/LivDet2017/Clarkson/test
+      Clarkson:
+        config:
+          gan: True
+        paths:
+          - /data/dataset/LivDet2017/Clarkson/test
       IIIT_WVU:
         config:
           gan: True
         paths:
           - /data/dataset/LivDet2017/IIIT_WVU/test
-#      NotreDame:
-#        config:
-#          gan: True
-#        paths:
-#          - /data/dataset/LivDet2017/NotreDame/test
+      NotreDame:
+        config:
+          gan: True
+        paths:
+          - /data/dataset/LivDet2017/NotreDame/test
   net_init:
     init_type: normal
     init_gain: 0.02
 
 CLASSIFIER:
+  confidence_threshold: 0.65
   batch_size: 64
   warmup: 40
   model:
     type: torchvision.models.efficientnet_b0
     params:
-      weights: DEFAULT
+      weights: null
     replacements:
       - name: "features.0.0"
         type: torch.nn.Conv2d
@@ -119,8 +137,8 @@ CUT:
         num_training_steps: -1
   netD:
     params:
-      ndf: 128
-      n_layers: 3
+      ndf: 64
+      n_layers: 5
       no_antialias: False
       norm: batch
     optimizer:

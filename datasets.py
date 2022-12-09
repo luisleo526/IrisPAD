@@ -1,5 +1,6 @@
 import imghdr
 import math
+from typing import List
 
 import torch
 from accelerate import Accelerator
@@ -33,15 +34,33 @@ def make_data_loader(args, accelerator: Accelerator):
 
         for name in args.GENERAL.data[mode]:
             dataloaders[mode].update({name: Munch()})
-            dataloaders[mode][name].update(dl=accelerator.prepare_data_loader(ThreadDataLoader(
-                [[x, 0] for x in paths[mode][name].label_0] + [[x, 1] for x in paths[mode][name].label_1],
-                batch_size=args.CLASSIFIER.batch_size,
-                collate_fn=collator,
-                shuffle=True
-            )))
+            dataloaders[mode][name].update(
+                dl=_make_data_loader(args, accelerator, vocab, paths[mode][name].label_0, paths[mode][name].label_1,
+                                     mode != 'test'))
             dataloaders[mode][name].update(config=args.GENERAL.data[mode][name].config)
 
     return dataloaders, paths, vocab
+
+
+def _make_data_loader(args, accelerator: Accelerator, vocab: Vocab, label_0: List[str], label_1: List[str],
+                      use_augmentation: bool):
+    transform = TransformFromPath(args, use_augmentation=use_augmentation)
+
+    def collator(samples):
+        batch = {'image': [], 'label': [], 'path': []}
+        for path, label in samples:
+            batch['image'].append(transform(path))
+            batch['path'].append(vocab.word2index(path))
+            batch['label'].append(label)
+        batch['image'] = torch.stack(batch['image'])
+        batch['label'] = torch.tensor(batch['label'])
+        batch['path'] = torch.tensor(batch['path'], dtype=torch.int32)
+        return batch
+
+    return accelerator.prepare_data_loader(
+        ThreadDataLoader([[x, 0] for x in label_0] + [[x, 1] for x in label_1],
+                         batch_size=args.CLASSIFIER.batch_size,
+                         collate_fn=collator, shuffle=True))
 
 
 def make_gan_loader(args, a_path, b_path, accelerator: Accelerator):
