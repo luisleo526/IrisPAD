@@ -2,7 +2,7 @@ GENERAL:
   name: IPAD
   seed: 47
   rgb: False
-  resolution: &resolution [ 128, 128 ]
+  resolution: &resolution [ 256, 256 ]
   max_epochs: 1000
   pad_token_id: -1
   data:
@@ -28,7 +28,7 @@ GENERAL:
           - /data/dataset/LivDet2017/NotreDame/test
       IIIT_WVU:
         config:
-          skip: True
+          skip: False
           selftraing: False
         paths:
           - /data/dataset/LivDet2017/IIIT_WVU/train
@@ -66,7 +66,7 @@ GENERAL:
 
 CLASSIFIER:
   confidence_threshold: 0.8
-  batch_size: 64
+  batch_size: 128
   warmup: 60
   model:
     type: torchvision.models.efficientnet_b0
@@ -103,7 +103,7 @@ CLASSIFIER:
 
 CUT:
   flip_prob: 0.2
-  batch_size: 32
+  batch_size: 16
   apply: True
   iterative: True
   update_freq: 5
