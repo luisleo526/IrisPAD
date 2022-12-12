@@ -46,7 +46,7 @@ def main(args):
     loaders, paths, vocab = make_data_loader(args, accelerator)
     paths_from_train = Munch(label_0=[], label_1=[])
     for data in paths.train.values():
-        if not data.config.skip:
+        if not data.config.skip and not data.config.selftraing:
             paths_from_train.label_0.extend(data.label_0)
             paths_from_train.label_1.extend(data.label_1)
 
@@ -69,11 +69,11 @@ def main(args):
     accelerator.wait_for_everyone()
 
     logger.info(" *** Start warmup classifier *** ")
-    step = run(args, paths_from_train, int(args.CLASSIFIER.warmup / 2), -1, accelerator, writer, nets, loaders, vocab,
+    step = run(args, paths_from_train, args.CLASSIFIER.warmup, -1, accelerator, writer, nets, loaders, vocab,
                use_gan, iterative, warmup=True, train_gan=False, tqdm_no_progress=not accelerator.is_local_main_process,
                self_training=False)
     logger.info(" *** Start warmup classifier + self-training *** ")
-    step = run(args, paths_from_train, int(args.CLASSIFIER.warmup / 2), step, accelerator, writer, nets, loaders, vocab,
+    step = run(args, paths_from_train, args.CLASSIFIER.warmup, step, accelerator, writer, nets, loaders, vocab,
                use_gan, iterative, warmup=True, train_gan=False, tqdm_no_progress=not accelerator.is_local_main_process,
                self_training=True)
     if use_gan:

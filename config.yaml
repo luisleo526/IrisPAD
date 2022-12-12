@@ -6,15 +6,19 @@ GENERAL:
   max_epochs: 1000
   pad_token_id: -1
   data:
+    pretrain:
+      config:
+        num_crops: [2, 4]
+        crop_sizes: [224, 96]
+        min_scale: [0.14, 0.05]
+        max_scale: [1, 0.14]
+        distortion_strength: 1.0
+        sigma_range: [0.1, 2.0]
+      paths:
+        - /data/dataset/IrisCSD
+        - /data/dataset/ND_CLD_2015
+        - /data/dataset/ND_Contact_2010
     train:
-      PreTraining:
-        config:
-          skip: True
-          selftraing: False
-        paths:
-          - /data/dataset/IrisCSD
-          - /data/dataset/ND_CLD_2015
-          - /data/dataset/ND_Contact_2010
       SelfTraining:
         config:
           skip: False
@@ -65,7 +69,7 @@ GENERAL:
     init_gain: 0.02
 
 CLASSIFIER:
-  confidence_threshold: 0.8
+  confidence_threshold: 0.9
   batch_size: 128
   warmup: 60
   model:
