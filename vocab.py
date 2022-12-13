@@ -1,6 +1,7 @@
 import sys
 from collections import Counter
 from copy import deepcopy
+from typing import Union, List
 
 
 class OutOfVocabularyException(Exception):
@@ -179,7 +180,7 @@ class Vocab:
         """
         raise OutOfVocabularyException("Word '{}' is not in the vocabulary".format(word))
 
-    def index2word(self, index):
+    def index2word(self, index: Union[List[int], int]) -> Union[List[str], str]:
         """
         Args:
             index (int): index to look up word for.

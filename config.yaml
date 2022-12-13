@@ -8,12 +8,12 @@ GENERAL:
   data:
     pretrain:
       config:
-        num_crops: [2, 4]
-        crop_sizes: [224, 96]
-        min_scale: [0.14, 0.05]
-        max_scale: [1, 0.14]
+        num_crops: [ 2, 4 ]
+        crop_sizes: [ 224, 96 ]
+        min_scale: [ 0.14, 0.05 ]
+        max_scale: [ 1, 0.14 ]
         distortion_strength: 1.0
-        sigma_range: [0.1, 2.0]
+        sigma_range: [ 0.1, 2.0 ]
       paths:
         - /data/dataset/IrisCSD
         - /data/dataset/ND_CLD_2015
@@ -36,18 +36,6 @@ GENERAL:
           selftraing: False
         paths:
           - /data/dataset/LivDet2017/IIIT_WVU/train
-#      Clarkson:
-#        config:
-#          skip: True
-#          selftraing: False
-#        paths:
-#          - /data/dataset/LivDet2017/Clarkson/train
-#      NotreDame:
-#        config:
-#          skip: True
-#          selftraing: False
-#        paths:
-#          - /data/dataset/LivDet2017/NotreDame/train
     test:
       Clarkson:
         config:
@@ -64,18 +52,17 @@ GENERAL:
           gan: True
         paths:
           - /data/dataset/LivDet2017/NotreDame/test
-  net_init:
-    init_type: xavier
-    init_gain: 0.02
 
 CLASSIFIER:
-  confidence_threshold: 0.9
-  batch_size: 128
-  warmup: 60
+  confidence_selfTraining: 0.9
+  confidence_CUT: 0.75
+  refresh_selftraining: 10
+  batch_size: 32
+  warmup: 30
   model:
     type: torchvision.models.efficientnet_b0
     params:
-      weights: null
+      weights: DEFAULT
     replacements:
       - name: "features.0.0"
         type: torch.nn.Conv2d
@@ -95,15 +82,18 @@ CLASSIFIER:
   optimizer:
     type: monai.optimizers.Novograd
     params:
-      amsgrad: False
+      amsgrad: True
       lr: 3.0e-3
       weight_decay: 1.0e-3
   scheduler:
     type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
     params:
-      num_cycles: 5
+      num_cycles: 10
       num_warmup_steps: &warm_steps 5000
       num_training_steps: -1
+  net_init:
+    init_type: xavier
+    init_gain: 0.02
 
 CUT:
   flip_prob: 0.2
@@ -114,14 +104,14 @@ CUT:
   warmup: 20
   flip_equivariance: False
   lambda_GAN: 1.0
-  lambda_NCE: 10.0
+  lambda_NCE: 1.0
   nce_layers: [ 0,4,8,12,16,20 ]
   nce_T: 0.07
   nce_idt: True
   mode: lsgan
   netG:
     params:
-      ngf: 128
+      ngf: 64
       norm: batch
       use_dropout: False
       n_blocks: 6
@@ -135,10 +125,13 @@ CUT:
         betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: transformers.get_cosine_schedule_with_warmup
+      type: torch.optim.lr_scheduler.StepLR
       params:
-        num_warmup_steps: *warm_steps
-        num_training_steps: -1
+        step_size: 30
+        gamma: 0.5
+    net_init:
+      init_type: normal
+      init_gain: 0.02
   netD:
     params:
       ndf: 64
@@ -152,10 +145,13 @@ CUT:
         betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: transformers.get_cosine_schedule_with_warmup
+      type: torch.optim.lr_scheduler.StepLR
       params:
-        num_warmup_steps: *warm_steps
-        num_training_steps: -1
+        step_size: 30
+        gamma: 0.5
+    net_init:
+      init_type: xavier
+      init_gain: 0.02
   netF:
     params:
       use_mlp: True
@@ -168,10 +164,13 @@ CUT:
         betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: transformers.get_cosine_schedule_with_warmup
+      type: torch.optim.lr_scheduler.StepLR
       params:
-        num_warmup_steps: *warm_steps
-        num_training_steps: -1
+        step_size: 30
+        gamma: 0.5
+    net_init:
+      init_type: normal
+      init_gain: 0.02
 
 AUGMENTATION:
   RandomHorizontalFlip:

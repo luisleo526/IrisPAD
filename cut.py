@@ -35,7 +35,7 @@ class CUT(nn.Module):
         channels = 3 if args.GENERAL.rgb else 1
         self.netG = ResnetGenerator(**args.CUT.netG.params, input_nc=channels, output_nc=channels)
         self.netD = NLayerDiscriminator(**args.CUT.netD.params, input_nc=channels)
-        self.netF = PatchSampleF(**args.CUT.netF.params, **args.GENERAL.net_init)
+        self.netF = PatchSampleF(**args.CUT.netF.params, **args.CUT.netF.net_init)
 
         self.criterionGAN = GANLoss(gan_mode=args.CUT.mode)
         self.criterionNCE = [PatchNCELoss(args.CUT.batch_size, args.CUT.nce_T) for _ in self.nce_layers]
@@ -146,9 +146,9 @@ def get_gan_networks(args, accelerator: Accelerator):
         scheduler = get_class(net_args.scheduler.type)(optim, **net_args.scheduler.params)
         optimizers.update({net: Munch(optim=optim, scheduler=scheduler)})
 
-    model.netG = init_net(model.netG, **args.GENERAL.net_init)
-    model.netD = init_net(model.netD, **args.GENERAL.net_init)
-    model.netF = init_net(model.netF, **args.GENERAL.net_init)
+    model.netG = init_net(model.netG, **args.CUT.netG.net_init)
+    model.netD = init_net(model.netD, **args.CUT.netD.net_init)
+    model.netF = init_net(model.netF, **args.CUT.netF.net_init)
 
     model = accelerator.prepare_model(model)
     for net in ['netD', 'netG', 'netF']:

@@ -60,7 +60,8 @@ def main(args):
     if "num_training_steps" in args.CLASSIFIER.scheduler.params:
         args.CLASSIFIER.scheduler.params.num_training_steps = num_steps
 
-    num_steps = int(len(vocab) // args.CUT.batch_size * (args.GENERAL.max_epochs + args.CUT.warmup) * 1.5)
+    num_steps = int(
+        len(vocab) // args.CUT.batch_size * (args.GENERAL.max_epochs / args.CUT.update_freq + args.CUT.warmup) * 1.5)
     for scheduler in [args.CUT.netD.scheduler, args.CUT.netF.scheduler, args.CUT.netG.scheduler]:
         if "num_training_steps" in scheduler.params:
             scheduler.params.num_training_steps = num_steps
@@ -69,24 +70,31 @@ def main(args):
     accelerator.wait_for_everyone()
 
     logger.info(" *** Start warmup classifier *** ")
-    step = run(args, paths_from_train, args.CLASSIFIER.warmup, -1, accelerator, writer, nets, loaders, vocab,
+    step = run(args, paths_from_train, None, args.CLASSIFIER.warmup, -1, accelerator, writer, nets, loaders, vocab,
                use_gan, iterative, warmup=True, train_gan=False, tqdm_no_progress=not accelerator.is_local_main_process,
-               self_training=False)
+               self_training=False, self_training_refresh=False)
     logger.info(" *** Start warmup classifier + self-training *** ")
-    step = run(args, paths_from_train, args.CLASSIFIER.warmup, step, accelerator, writer, nets, loaders, vocab,
-               use_gan, iterative, warmup=True, train_gan=False, tqdm_no_progress=not accelerator.is_local_main_process,
-               self_training=True)
+    step, paths_for_selftrain = run(args, paths_from_train, None, args.CLASSIFIER.warmup, step, accelerator, writer,
+                                    nets, loaders, vocab,
+                                    use_gan, iterative, warmup=True, train_gan=False,
+                                    tqdm_no_progress=not accelerator.is_local_main_process,
+                                    self_training=True, self_training_refresh=False)
     if use_gan:
         logger.info(" *** Start warmup CUT *** ")
-        step = run(args, paths_from_train, args.CUT.warmup, step, accelerator, writer, nets, loaders, vocab, use_gan,
-                   iterative, warmup=True, train_gan=True, tqdm_no_progress=not accelerator.is_local_main_process,
-                   self_training=True)
+        step, paths_for_selftrain = run(args, paths_from_train, paths_for_selftrain, args.CUT.warmup, step, accelerator,
+                                        writer, nets,
+                                        loaders, vocab, use_gan,
+                                        iterative, warmup=True, train_gan=True,
+                                        tqdm_no_progress=not accelerator.is_local_main_process,
+                                        self_training=True, self_training_refresh=False)
 
     logger.info(" *** Start training *** ")
     for epoch in tqdm(range(args.GENERAL.max_epochs), disable=not accelerator.is_local_main_process):
-        step = run(args, paths_from_train, 1, step, accelerator, writer, nets, loaders, vocab, use_gan,
-                   iterative, warmup=False, train_gan=(epoch + 1) % args.CUT.update_freq == 0,
-                   tqdm_no_progress=True, self_training=True)
+        step, paths_for_selftrain = run(args, paths_from_train, paths_for_selftrain, 1, step, accelerator, writer, nets,
+                                        loaders, vocab, use_gan,
+                                        iterative, warmup=False, train_gan=(epoch + 1) % args.CUT.update_freq == 0,
+                                        tqdm_no_progress=True, self_training=True,
+                                        self_training_refresh=epoch % args.CLASSIFIER.refresh_selftraining == 0)
 
     if accelerator.is_main_process:
         writer.close()

@@ -12,28 +12,35 @@ class Classifier(nn.Module):
         self.model = get_class(args.CLASSIFIER.model.type)(**args.CLASSIFIER.model.params)
         for replacement in args.CLASSIFIER.model.replacements:
             net = get_class(replacement.type)(**replacement.params)
-            net = init_net(net, **args.GENERAL.net_init)
+            net = init_net(net, **args.CLASSIFIER.net_init)
             rsetattr(self.model, replacement.name, net)
         if args.CLASSIFIER.model.params.weights is None:
-            self.model = init_net(self.model, **args.GENERAL.net_init)
+            self.model = init_net(self.model, **args.CLASSIFIER.net_init)
         self.loss_fn = nn.CrossEntropyLoss(reduction='sum')
         self.pad_token_id = args.GENERAL.pad_token_id
-        self.confidence_threshold = args.CLASSIFIER.confidence_threshold
+        self.confidence_selfTraining = args.CLASSIFIER.confidence_selfTraining
+        self.confidence_CUT = args.CLASSIFIER.confidence_CUT
 
     def forward(self, batch):
-        pred = self.model(batch['image'])
-        loss = self.loss_fn(pred, batch['label'])
-        mask = (torch.nn.Softmax(dim=-1)(pred)).max(dim=-1)[0] > self.confidence_threshold
-        pred = pred.argmax(dim=-1)
-        padding = [torch.tensor(self.pad_token_id, device=batch['image'].device, dtype=torch.int32)]
-        label_0 = torch.stack(padding + [batch['path'][x] for x in range(len(pred)) if pred[x].item() == 0])
-        label_1 = torch.stack(padding + [batch['path'][x] for x in range(len(pred)) if pred[x].item() == 1])
-        paths = batch['path'][mask]
-        pred_mask = pred[mask]
-        label_0_mask = torch.stack(padding + [paths[x] for x in range(len(pred_mask)) if pred_mask[x].item() == 0])
-        label_1_mask = torch.stack(padding + [paths[x] for x in range(len(pred_mask)) if pred_mask[x].item() == 1])
+        output = self.model(batch['image'])
+        loss = self.loss_fn(output, batch['label'])
 
-        return Munch(loss=loss, pred=pred, label_0=label_0, label_1=label_1,
+        padding = [torch.tensor(self.pad_token_id, device=batch['image'].device, dtype=torch.int32)]
+        pred_all = output.argmax(dim=-1)
+
+        mask = (torch.nn.Softmax(dim=-1)(output)).max(dim=-1)[0] > self.confidence_CUT
+        paths = batch['path'][mask]
+        preds = pred_all[mask]
+        label_0 = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
+        label_1 = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
+
+        mask = (torch.nn.Softmax(dim=-1)(output)).max(dim=-1)[0] > self.confidence_selfTraining
+        paths = batch['path'][mask]
+        preds = pred_all[mask]
+        label_0_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
+        label_1_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
+
+        return Munch(loss=loss, pred=pred_all, label_0=label_0, label_1=label_1,
                      label_0_mask=label_0_mask, label_1_mask=label_1_mask)
 
 
