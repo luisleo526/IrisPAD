@@ -195,7 +195,4 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                     writer.add_scalars(f"CUT/{cut_labels[key]}_losses", dict(value), global_step=step)
                 writer.flush()
 
-    if paths_for_selftraining is not None:
-        return step, paths_for_selftraining
-    else:
-        return step
+    return step, paths_for_selftraining
