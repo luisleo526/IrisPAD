@@ -54,6 +54,7 @@ GENERAL:
           - /data/dataset/LivDet2017/NotreDame/test
 
 CLASSIFIER:
+  self_training: False
   confidence_selfTraining: 0.9
   confidence_CUT: 0.75
   refresh_selftraining: 10

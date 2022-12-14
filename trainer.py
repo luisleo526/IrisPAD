@@ -14,10 +14,8 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         accelerator: Accelerator, writer: Optional[SummaryWriter], nets, loaders, vocab: Vocab,
         use_gan: bool, iterative: bool, warmup: bool, train_gan: bool, tqdm_no_progress: bool, self_training: bool,
         self_training_refresh: bool):
-    pad_token_id = args.GENERAL.pad_token_id
 
-    if self_training and (paths_for_selftraining is None or self_training_refresh):
-        paths_for_selftraining = Munch(label_0=[], label_1=[])
+    pad_token_id = args.GENERAL.pad_token_id
 
     for _ in tqdm(range(num_epoch), disable=tqdm_no_progress):
         step += 1
@@ -73,25 +71,25 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         results[key].update({name: value})
                 else:
                     if self_training:
-                        nets.classifier.model.eval()
-                        for batch in loader.dl:
-                            with torch.no_grad():
-                                outputs = nets.classifier.model(batch)
-                                label_0 = accelerator.pad_across_processes(outputs.label_0_mask,
-                                                                           dim=0, pad_index=pad_token_id,
-                                                                           pad_first=False)
-                                label_1 = accelerator.pad_across_processes(outputs.label_1_mask,
-                                                                           dim=0, pad_index=pad_token_id,
-                                                                           pad_first=False)
-                                label_0 = accelerator.gather(label_0)
-                                label_1 = accelerator.gather(label_1)
-                                paths_for_selftraining.label_0.extend(label_0[label_0 != pad_token_id].tolist())
-                                paths_for_selftraining.label_1.extend(label_1[label_1 != pad_token_id].tolist())
+                        if self_training_refresh or paths_for_selftraining is None:
+                            paths_for_selftraining = Munch(label_0=[], label_1=[])
+                            nets.classifier.model.eval()
+                            for batch in loader.dl:
+                                with torch.no_grad():
+                                    outputs = nets.classifier.model(batch)
+                                    label_0 = accelerator.pad_across_processes(outputs.label_0_mask,
+                                                                               dim=0, pad_index=pad_token_id,
+                                                                               pad_first=False)
+                                    label_1 = accelerator.pad_across_processes(outputs.label_1_mask,
+                                                                               dim=0, pad_index=pad_token_id,
+                                                                               pad_first=False)
+                                    label_0 = accelerator.gather(label_0)
+                                    label_1 = accelerator.gather(label_1)
+                                    paths_for_selftraining.label_0.extend(label_0[label_0 != pad_token_id].tolist())
+                                    paths_for_selftraining.label_1.extend(label_1[label_1 != pad_token_id].tolist())
 
-                        paths_for_selftraining.label_0 = list(set(paths_for_selftraining.label_0))
-                        paths_for_selftraining.label_1 = list(set(paths_for_selftraining.label_1))
-                        label_0: List[str] = vocab.index2word(paths_for_selftraining.label_0)
-                        label_1: List[str] = vocab.index2word(paths_for_selftraining.label_1)
+                        label_0: List[str] = vocab.index2word(list(set(paths_for_selftraining.label_0)))
+                        label_1: List[str] = vocab.index2word(list(set(paths_for_selftraining.label_1)))
                         nets.classifier.model.train()
                         for batch in _make_data_loader(args,
                                                        accelerator, vocab, label_0=label_0, label_1=label_1,
@@ -128,10 +126,10 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         (outputs.pred, batch['label'], outputs.loss.detach()))
                     metrics(pred, tgt, loss)
                     if loader.config.gan:
-                        label_0 = accelerator.pad_across_processes(outputs.label_0_mask,
+                        label_0 = accelerator.pad_across_processes(outputs.label_0,
                                                                    dim=0, pad_index=pad_token_id,
                                                                    pad_first=False)
-                        label_1 = accelerator.pad_across_processes(outputs.label_1_mask,
+                        label_1 = accelerator.pad_across_processes(outputs.label_1,
                                                                    dim=0, pad_index=pad_token_id,
                                                                    pad_first=False)
                         label_0 = accelerator.gather(label_0)
