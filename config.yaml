@@ -3,7 +3,7 @@ GENERAL:
   seed: 47
   rgb: False
   resolution: &resolution [ 256, 256 ]
-  max_epochs: 1000
+  max_epochs: 600
   pad_token_id: -1
   data:
     pretrain:
@@ -56,7 +56,7 @@ GENERAL:
 CLASSIFIER:
   self_training: False
   confidence_selfTraining: 0.9
-  confidence_CUT: 0.75
+  confidence_CUT: 0.8
   refresh_selftraining: 10
   batch_size: 32
   warmup: 30
@@ -84,7 +84,7 @@ CLASSIFIER:
     type: monai.optimizers.Novograd
     params:
       amsgrad: True
-      lr: 3.0e-3
+      lr: 1.0e-3
       weight_decay: 1.0e-3
   scheduler:
     type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
@@ -97,30 +97,50 @@ CLASSIFIER:
     init_gain: 0.02
 
 CUT:
-  flip_prob: 0.2
-  batch_size: 16
+  flip_prob: 0.1
+  batch_size: 8
   apply: True
   iterative: True
   update_freq: 5
-  warmup: 20
+  warmup: 30
   flip_equivariance: False
   lambda_GAN: 1.0
-  lambda_NCE: 1.0
-  nce_layers: [ 0,4,8,12,16,20 ]
+  lambda_NCE: 5.0
+  nce_layers: [ 0,4,8,12,16 ]
   nce_T: 0.07
   nce_idt: True
   mode: lsgan
   netG:
     params:
-      ngf: 64
+      ngf: 128
       norm: batch
       use_dropout: False
-      n_blocks: 6
+      n_blocks: 9
       padding_type: reflect
       no_antialias: False
       no_antialias_up: False
     optimizer:
-      type: monai.optimizers.Novograd
+      type: torch.optim.Adam
+      params:
+        lr: 5.0e-4
+        betas: [ 0.75, 0.999 ]
+        weight_decay: 1.0e-3
+    scheduler:
+      type: torch.optim.lr_scheduler.StepLR
+      params:
+        step_size: 60
+        gamma: 0.5
+    net_init:
+      init_type: normal
+      init_gain: 0.02
+  netD:
+    params:
+      ndf: 64
+      n_layers: 5
+      no_antialias: False
+      norm: batch
+    optimizer:
+      type: torch.optim.Adam
       params:
         lr: 5.0e-4
         betas: [ 0.75, 0.999 ]
@@ -133,33 +153,13 @@ CUT:
     net_init:
       init_type: normal
       init_gain: 0.02
-  netD:
-    params:
-      ndf: 64
-      n_layers: 5
-      no_antialias: False
-      norm: batch
-    optimizer:
-      type: monai.optimizers.Novograd
-      params:
-        lr: 5.0e-4
-        betas: [ 0.75, 0.999 ]
-        weight_decay: 1.0e-3
-    scheduler:
-      type: torch.optim.lr_scheduler.StepLR
-      params:
-        step_size: 30
-        gamma: 0.5
-    net_init:
-      init_type: xavier
-      init_gain: 0.02
   netF:
     params:
       use_mlp: True
       nc: 256
       num_patches: 128
     optimizer:
-      type: monai.optimizers.Novograd
+      type: torch.optim.Adam
       params:
         lr: 1.0e-3
         betas: [ 0.75, 0.999 ]

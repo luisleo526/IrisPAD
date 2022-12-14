@@ -43,6 +43,8 @@ def main(args):
         writer = SummaryWriter("./log", filename_suffix=args.GENERAL.name)
     else:
         writer = None
+        
+    # accelerator.logger = logger
 
     loaders, paths, vocab = make_data_loader(args, accelerator)
     paths_from_train = Munch(label_0=[], label_1=[])
@@ -50,22 +52,6 @@ def main(args):
         if not data.config.skip and not data.config.selftraing:
             paths_from_train.label_0.extend(data.label_0)
             paths_from_train.label_1.extend(data.label_1)
-
-    # Estimate the number of steps
-    num_steps = 0
-    for loader in loaders.train.values():
-        if loader.config.skip:
-            num_steps += len(loader.dl) * args.CLASSIFIER.warmup
-        else:
-            num_steps += len(loader.dl) * (args.CLASSIFIER.warmup * 2 + args.GENERAL.max_epochs)
-    if "num_training_steps" in args.CLASSIFIER.scheduler.params:
-        args.CLASSIFIER.scheduler.params.num_training_steps = num_steps
-
-    num_steps = int(
-        len(vocab) // args.CUT.batch_size * (args.GENERAL.max_epochs / args.CUT.update_freq + args.CUT.warmup) * 1.5)
-    for scheduler in [args.CUT.netD.scheduler, args.CUT.netF.scheduler, args.CUT.netG.scheduler]:
-        if "num_training_steps" in scheduler.params:
-            scheduler.params.num_training_steps = num_steps
 
     nets = get_all_networks(args, accelerator)
     accelerator.wait_for_everyone()

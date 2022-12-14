@@ -60,13 +60,15 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 
                         outputs = nets.classifier.model(batch)
                         accelerator.backward(outputs.loss)
-                        nets.classifier.optimizers.optim.step()
                         nets.classifier.optimizers.optim.zero_grad()
                         nets.classifier.optimizers.scheduler.step()
 
                         pred, tgt, loss = accelerator.gather_for_metrics(
                             (outputs.pred, batch['label'], outputs.loss.detach()))
                         metrics(pred, tgt, loss)
+                    
+                    nets.classifier.optimizers.optim.step()
+                    
                     for key, value in metrics.aggregate().items():
                         results[key].update({name: value})
                 else:
