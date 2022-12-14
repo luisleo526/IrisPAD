@@ -87,11 +87,10 @@ CLASSIFIER:
       lr: 1.0e-3
       weight_decay: 1.0e-3
   scheduler:
-    type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
+    type: torch.optim.lr_scheduler.StepLR
     params:
-      num_cycles: 10
-      num_warmup_steps: &warm_steps 5000
-      num_training_steps: -1
+      step_size: 60
+      gamma: 0.5
   net_init:
     init_type: xavier
     init_gain: 0.02
@@ -128,7 +127,7 @@ CUT:
     scheduler:
       type: torch.optim.lr_scheduler.StepLR
       params:
-        step_size: 60
+        step_size: 30
         gamma: 0.5
     net_init:
       init_type: normal
