@@ -60,6 +60,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 
                         outputs = nets.classifier.model(batch)
                         accelerator.backward(outputs.loss)
+                        nets.classifier.optimizers.optim.step()
                         nets.classifier.optimizers.optim.zero_grad()
                         nets.classifier.optimizers.scheduler.step()
 
@@ -183,9 +184,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                     for net in ['netD', 'netG', 'netF']:
                         nets[name].optimizers[net].optim.step()
                         nets[name].optimizers[net].optim.zero_grad()
-
-                for net in ['netD', 'netG', 'netF']:
-                    nets[name].optimizers[net].scheduler.step()
+                        nets[name].optimizers[net].scheduler.step()
 
                 if accelerator.is_main_process:
                     writer.add_images(f"{cut_labels[name]}/RealImages", outputs.real, global_step=step)

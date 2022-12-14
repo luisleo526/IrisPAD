@@ -6,52 +6,52 @@ GENERAL:
   max_epochs: 600
   pad_token_id: -1
   data:
-    pretrain:
-      config:
-        num_crops: [ 2, 4 ]
-        crop_sizes: [ 224, 96 ]
-        min_scale: [ 0.14, 0.05 ]
-        max_scale: [ 1, 0.14 ]
-        distortion_strength: 1.0
-        sigma_range: [ 0.1, 2.0 ]
-      paths:
-        - /data/dataset/IrisCSD
-        - /data/dataset/ND_CLD_2015
-        - /data/dataset/ND_Contact_2010
+    # pretrain:
+    #   config:
+    #     num_crops: [ 2, 4 ]
+    #     crop_sizes: [ 224, 96 ]
+    #     min_scale: [ 0.14, 0.05 ]
+    #     max_scale: [ 1, 0.14 ]
+    #     distortion_strength: 1.0
+    #     sigma_range: [ 0.1, 2.0 ]
+    #   paths:
+    #     - /root/notebooks/dataset/IrisCSD
+    #     - /root/notebooks/dataset/ND_CLD_2015
+    #     - /root/notebooks/dataset/ND_Contact_2010
     train:
-      SelfTraining:
-        config:
-          skip: False
-          selftraing: True
-        paths:
-          - /data/dataset/LivDet2017/Clarkson/train
-#          - /data/dataset/LivDet2017/IIIT_WVU/train
-          - /data/dataset/LivDet2017/NotreDame/train
-          - /data/dataset/LivDet2017/Clarkson/test
-          - /data/dataset/LivDet2017/IIIT_WVU/test
-          - /data/dataset/LivDet2017/NotreDame/test
+      # SelfTraining:
+      #   config:
+      #     skip: False
+      #     selftraing: True
+      #   paths:
+      #     - /root/notebooks/dataset/LivDet2017/Clarkson/train
+      #     - /root/notebooks/dataset/LivDet2017/IIIT_WVU/train
+      #     - /root/notebooks/dataset/LivDet2017/NotreDame/train
+      #     - /root/notebooks/dataset/LivDet2017/Clarkson/test
+      #     - /root/notebooks/dataset/LivDet2017/IIIT_WVU/test
+      #     - /root/notebooks/dataset/LivDet2017/NotreDame/test
       IIIT_WVU:
         config:
           skip: False
           selftraing: False
         paths:
-          - /data/dataset/LivDet2017/IIIT_WVU/train
+          - /root/notebooks/dataset/LivDet2017/IIIT_WVU/train
     test:
       Clarkson:
         config:
           gan: True
         paths:
-          - /data/dataset/LivDet2017/Clarkson/test
+          - /root/notebooks/dataset/LivDet2017/Clarkson/test
       IIIT_WVU:
         config:
           gan: True
         paths:
-          - /data/dataset/LivDet2017/IIIT_WVU/test
+          - /root/notebooks/dataset/LivDet2017/IIIT_WVU/test
       NotreDame:
         config:
           gan: True
         paths:
-          - /data/dataset/LivDet2017/NotreDame/test
+          - /root/notebooks/dataset/LivDet2017/NotreDame/test
 
 CLASSIFIER:
   self_training: False
@@ -84,20 +84,21 @@ CLASSIFIER:
     type: monai.optimizers.Novograd
     params:
       amsgrad: True
-      lr: 1.0e-3
+      lr: 3.0e-3
       weight_decay: 1.0e-3
   scheduler:
-    type: torch.optim.lr_scheduler.StepLR
+    type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
     params:
-      step_size: 60
-      gamma: 0.5
+      num_cycles: 10
+      num_warmup_steps: -1
+      num_training_steps: -1
   net_init:
     init_type: xavier
     init_gain: 0.02
 
 CUT:
   flip_prob: 0.1
-  batch_size: 8
+  batch_size: 32
   apply: True
   iterative: True
   update_freq: 5
@@ -125,16 +126,17 @@ CUT:
         betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: torch.optim.lr_scheduler.StepLR
+      type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
       params:
-        step_size: 30
-        gamma: 0.5
+        num_cycles: 10
+        num_warmup_steps: -1
+        num_training_steps: -1
     net_init:
       init_type: normal
       init_gain: 0.02
   netD:
     params:
-      ndf: 64
+      ndf: 128
       n_layers: 5
       no_antialias: False
       norm: batch
@@ -145,10 +147,11 @@ CUT:
         betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: torch.optim.lr_scheduler.StepLR
+      type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
       params:
-        step_size: 30
-        gamma: 0.5
+        num_cycles: 10
+        num_warmup_steps: -1
+        num_training_steps: -1
     net_init:
       init_type: normal
       init_gain: 0.02
@@ -164,10 +167,11 @@ CUT:
         betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: torch.optim.lr_scheduler.StepLR
+      type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
       params:
-        step_size: 30
-        gamma: 0.5
+        num_cycles: 10
+        num_warmup_steps: -1
+        num_training_steps: -1
     net_init:
       init_type: normal
       init_gain: 0.02
