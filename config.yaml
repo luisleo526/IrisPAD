@@ -4,66 +4,76 @@ GENERAL:
   rgb: False
   resolution: &resolution [ 256, 256 ]
   max_epochs: 600
-  pad_token_id: -1
   data:
-    # pretrain:
-    #   config:
-    #     num_crops: [ 2, 4 ]
-    #     crop_sizes: [ 224, 96 ]
-    #     min_scale: [ 0.14, 0.05 ]
-    #     max_scale: [ 1, 0.14 ]
-    #     distortion_strength: 1.0
-    #     sigma_range: [ 0.1, 2.0 ]
-    #   paths:
-    #     - /root/notebooks/dataset/IrisCSD
-    #     - /root/notebooks/dataset/ND_CLD_2015
-    #     - /root/notebooks/dataset/ND_Contact_2010
+    pretrain:
+      - /data/dataset/IrisCSD
+      - /data/dataset/ND_CLD_2015
+      - /data/dataset/ND_Contact_2010
     train:
-      # SelfTraining:
-      #   config:
-      #     skip: False
-      #     selftraing: True
-      #   paths:
-      #     - /root/notebooks/dataset/LivDet2017/Clarkson/train
-      #     - /root/notebooks/dataset/LivDet2017/IIIT_WVU/train
-      #     - /root/notebooks/dataset/LivDet2017/NotreDame/train
-      #     - /root/notebooks/dataset/LivDet2017/Clarkson/test
-      #     - /root/notebooks/dataset/LivDet2017/IIIT_WVU/test
-      #     - /root/notebooks/dataset/LivDet2017/NotreDame/test
+      SelfTraining:
+        config:
+          skip: False
+          selftraing: True
+        paths:
+          - /data/dataset/LivDet2017/Clarkson/train
+          - /data/dataset/LivDet2017/IIIT_WVU/train
+          - /data/dataset/LivDet2017/NotreDame/train
+          - /data/dataset/LivDet2017/Clarkson/test
+          - /data/dataset/LivDet2017/IIIT_WVU/test
+          - /data/dataset/LivDet2017/NotreDame/test
       IIIT_WVU:
         config:
           skip: False
           selftraing: False
         paths:
-          - /root/notebooks/dataset/LivDet2017/IIIT_WVU/train
+          - /data/dataset/LivDet2017/IIIT_WVU/train
     test:
       Clarkson:
         config:
           gan: True
         paths:
-          - /root/notebooks/dataset/LivDet2017/Clarkson/test
+          - /data/dataset/LivDet2017/Clarkson/test
       IIIT_WVU:
         config:
           gan: True
         paths:
-          - /root/notebooks/dataset/LivDet2017/IIIT_WVU/test
+          - /data/dataset/LivDet2017/IIIT_WVU/test
       NotreDame:
         config:
           gan: True
         paths:
-          - /root/notebooks/dataset/LivDet2017/NotreDame/test
+          - /data/dataset/LivDet2017/NotreDame/test
 
 CLASSIFIER:
-  self_training: False
   confidence_selfTraining: 0.9
   confidence_CUT: 0.8
   refresh_selftraining: 10
   batch_size: 32
   warmup: 30
+  pad_token_id: -1
+  self_training: True
+  pretrain:
+    batch_size: 8
+    apply: True
+    epochs: 250
+    temperature: 0.07
+    config:
+      num_crops: [ 2, 4 ]
+      crop_sizes: [ 224, 96 ]
+      min_scale: [ 0.2, 0.1 ]
+      max_scale: [ 0.8, 0.4 ]
+      distortion_strength: 1.0
+      sigma_range: [ 0.1, 2.0 ]
+      gaussian_std: [ 0.05, 0.02 ]
+    scheduler:
+      type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+      params:
+        T_0: 250
+        T_mult: 2
   model:
     type: torchvision.models.efficientnet_b0
     params:
-      weights: DEFAULT
+      weights: null
     replacements:
       - name: "features.0.0"
         type: torch.nn.Conv2d
@@ -80,6 +90,13 @@ CLASSIFIER:
           in_features: 1280
           out_features: 2
           bias: True
+    extractor:
+      output: classifier
+      features:
+        - features.7
+        - features.6
+        - features.5
+        - features.4
   optimizer:
     type: monai.optimizers.Novograd
     params:
@@ -99,7 +116,7 @@ CLASSIFIER:
 CUT:
   flip_prob: 0.1
   batch_size: 32
-  apply: True
+  apply: False
   iterative: True
   update_freq: 5
   warmup: 30

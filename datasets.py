@@ -10,6 +10,7 @@ from monai.data.utils import partition_dataset, resample_datalist
 from munch import Munch
 from torchvision.datasets.folder import find_classes, make_dataset
 
+from multicropdataset import MultiCropDataset
 from transforms import TransformFromPath
 from vocab import Vocab
 
@@ -19,25 +20,26 @@ def make_data_loader(args, accelerator: Accelerator):
     dataloaders = Munch(train=Munch(), test=Munch())
 
     for mode in ['train', 'test']:
-        transform = TransformFromPath(args, use_augmentation=mode != 'test')
-
-        def collator(samples):
-            batch = {'image': [], 'label': [], 'path': []}
-            for path, label in samples:
-                batch['image'].append(transform(path))
-                batch['path'].append(vocab.word2index(path))
-                batch['label'].append(label)
-            batch['image'] = torch.stack(batch['image'])
-            batch['label'] = torch.tensor(batch['label'])
-            batch['path'] = torch.tensor(batch['path'], dtype=torch.int32)
-            return batch
-
         for name in args.GENERAL.data[mode]:
             dataloaders[mode].update({name: Munch()})
             dataloaders[mode][name].update(
                 dl=_make_data_loader(args, accelerator, vocab, paths[mode][name].label_0, paths[mode][name].label_1,
                                      mode != 'test'))
             dataloaders[mode][name].update(config=args.GENERAL.data[mode][name].config)
+
+    if args.CLASSIFIER.pretrain.apply:
+
+        def collator(samples_list):
+            outputs = [[] for _ in range(len(samples_list[0]))]
+            for samples in samples_list:
+                for i, sample in enumerate(samples):
+                    outputs[i].append(sample)
+            outputs = [torch.stack(x).double() for x in outputs]
+            return outputs
+
+        dl = ThreadDataLoader(MultiCropDataset(args), batch_size=args.CLASSIFIER.pretrain.batch_size,
+                              shuffle=True, pin_memory=True, collate_fn=collator)
+        dataloaders.update(pretrain=Munch(dl=accelerator.prepare_data_loader(dl)))
 
     return dataloaders, paths, vocab
 
@@ -60,7 +62,7 @@ def _make_data_loader(args, accelerator: Accelerator, vocab: Vocab, label_0: Lis
     return accelerator.prepare_data_loader(
         ThreadDataLoader([[x, 0] for x in label_0] + [[x, 1] for x in label_1],
                          batch_size=args.CLASSIFIER.batch_size,
-                         collate_fn=collator, shuffle=True))
+                         collate_fn=collator, shuffle=True, pin_memory=True))
 
 
 def make_gan_loader(args, a_path, b_path, accelerator: Accelerator):
@@ -101,7 +103,7 @@ def make_gan_loader(args, a_path, b_path, accelerator: Accelerator):
 
     return accelerator.prepare_data_loader(
         ThreadDataLoader(ZipDataset(a_path + b_path), batch_size=1, collate_fn=collator,
-                         shuffle=True))
+                         shuffle=True, pin_memory=True))
 
 
 def prepare_image_path(args):

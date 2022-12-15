@@ -14,8 +14,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         accelerator: Accelerator, writer: Optional[SummaryWriter], nets, loaders, vocab: Vocab,
         use_gan: bool, iterative: bool, warmup: bool, train_gan: bool, tqdm_no_progress: bool, self_training: bool,
         self_training_refresh: bool):
-
-    pad_token_id = args.GENERAL.pad_token_id
+    pad_token_id = args.CLASSIFIER.pad_token_id
 
     for _ in tqdm(range(num_epoch), disable=tqdm_no_progress):
         step += 1
@@ -67,30 +66,38 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         pred, tgt, loss = accelerator.gather_for_metrics(
                             (outputs.pred, batch['label'], outputs.loss.detach()))
                         metrics(pred, tgt, loss)
-                    
+
                     nets.classifier.optimizers.optim.step()
-                    
+
                     for key, value in metrics.aggregate().items():
                         results[key].update({name: value})
                 else:
                     if self_training:
-                        if self_training_refresh or paths_for_selftraining is None:
+                        if paths_for_selftraining is None:
                             paths_for_selftraining = Munch(label_0=[], label_1=[])
-                            nets.classifier.model.eval()
-                            for batch in loader.dl:
-                                with torch.no_grad():
-                                    outputs = nets.classifier.model(batch)
-                                    label_0 = accelerator.pad_across_processes(outputs.label_0_mask,
-                                                                               dim=0, pad_index=pad_token_id,
-                                                                               pad_first=False)
-                                    label_1 = accelerator.pad_across_processes(outputs.label_1_mask,
-                                                                               dim=0, pad_index=pad_token_id,
-                                                                               pad_first=False)
-                                    label_0 = accelerator.gather(label_0)
-                                    label_1 = accelerator.gather(label_1)
-                                    paths_for_selftraining.label_0.extend(label_0[label_0 != pad_token_id].tolist())
-                                    paths_for_selftraining.label_1.extend(label_1[label_1 != pad_token_id].tolist())
 
+                        paths_for_selftraining_new = Munch(label_0=[], label_1=[])
+                        nets.classifier.model.eval()
+                        for batch in loader.dl:
+                            with torch.no_grad():
+                                outputs = nets.classifier.model(batch)
+                                label_0 = accelerator.pad_across_processes(outputs.label_0_mask,
+                                                                           dim=0, pad_index=pad_token_id,
+                                                                           pad_first=False)
+                                label_1 = accelerator.pad_across_processes(outputs.label_1_mask,
+                                                                           dim=0, pad_index=pad_token_id,
+                                                                           pad_first=False)
+                                label_0 = accelerator.gather(label_0)
+                                label_1 = accelerator.gather(label_1)
+                                paths_for_selftraining_new.label_0.extend(label_0[label_0 != pad_token_id].tolist())
+                                paths_for_selftraining_new.label_1.extend(label_1[label_1 != pad_token_id].tolist())
+
+                        paths_for_selftraining_new.label_0 = [x for x in paths_for_selftraining_new.label_0
+                                                              if x not in paths_for_selftraining.label_1]
+                        paths_for_selftraining_new.label_1 = [x for x in paths_for_selftraining_new.label_1
+                                                              if x not in paths_for_selftraining.label_0]
+                        paths_for_selftraining.label_0.extend(paths_for_selftraining_new.label_0)
+                        paths_for_selftraining.label_1.extend(paths_for_selftraining_new.label_1)
                         label_0: List[str] = vocab.index2word(list(set(paths_for_selftraining.label_0)))
                         label_1: List[str] = vocab.index2word(list(set(paths_for_selftraining.label_1)))
                         nets.classifier.model.train()
@@ -197,3 +204,42 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                 writer.flush()
 
     return step, paths_for_selftraining
+
+
+def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryWriter, num_epoch: int,
+                 tqdm_no_progress: bool):
+    progress_bar = tqdm(range(num_epoch * len(loaders.pretrain.dl)), disable=tqdm_no_progress)
+    for step in range(num_epoch * len(loaders.pretrain.dl)):
+
+        nets.classifier.model.train()
+        for batch in loaders.pretrain.dl:
+
+            results = Munch()
+            for i in range(len(args.CLASSIFIER.model.extractor.features)):
+                results.update({f"feature_{i}": Munch()})
+                for j in range(len(args.CLASSIFIER.pretrain.config.num_crops)):
+                    results[f"feature_{i}"].update({f"Group_{j}": 0})
+
+            losses = nets.classifier.model(batch, pretrain=True)
+            loss_sum = 0
+            for name, loss_list in losses.items():
+                for i, loss in enumerate(loss_list):
+                    loss_sum += loss
+                    loss = accelerator.gather_for_metrics(loss.detach())
+                    results[name][f"Group_{i}"] += loss.sum().item()
+
+            accelerator.backward(loss_sum)
+            nets.classifier.optimizers.optim.step()
+            nets.classifier.optimizers.optim.zero_grad()
+            nets.classifier.optimizers.scheduler_pretrain.step()
+
+            if accelerator.is_main_process:
+                for key, value in results.items():
+                    writer.add_scalars(f"PRETRAIN/{key}_losses", dict(value), global_step=step)
+                writer.flush()
+                step += 1
+
+            accelerator.wait_for_everyone()
+
+            if accelerator.sync_gradients:
+                progress_bar.update(1)

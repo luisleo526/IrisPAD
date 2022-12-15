@@ -12,7 +12,7 @@ from tqdm.auto import tqdm
 
 from create_networks import get_all_networks
 from datasets import make_data_loader
-from trainer import run
+from trainer import run, run_pretrain
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,7 @@ def main(args):
         writer = SummaryWriter("./log", filename_suffix=args.GENERAL.name)
     else:
         writer = None
-        
+
     # accelerator.logger = logger
 
     loaders, paths, vocab = make_data_loader(args, accelerator)
@@ -61,25 +61,31 @@ def main(args):
         warmup_steps += len(loader.dl) * args.CLASSIFIER.warmup * index
         if not loader.config.skip:
             train_steps += len(loader.dl) * (args.CLASSIFIER.warmup * index + args.GENERAL.max_epochs)
-            
+
     if "num_training_steps" in args.CLASSIFIER.scheduler.params:
         args.CLASSIFIER.scheduler.params.num_training_steps = warmup_steps + train_steps
     if "num_warmup_steps" in args.CLASSIFIER.scheduler.params:
         args.CLASSIFIER.scheduler.params.num_warmup_steps = warmup_steps
 
     if iterative:
-        num_steps = max(len(paths_from_train.label_0),len(paths_from_train.label_1)) // args.CUT.batch_size
+        num_steps = max(len(paths_from_train.label_0), len(paths_from_train.label_1)) // args.CUT.batch_size
     else:
         num_steps = len(paths_from_train.label_0 + paths_from_train.label_1) // args.CUT.batch_size
-        
+
     for scheduler in [args.CUT.netD.scheduler, args.CUT.netF.scheduler, args.CUT.netG.scheduler]:
         if "num_training_steps" in scheduler.params:
-            scheduler.params.num_training_steps = num_steps * (args.CUT.warmup + args.GENERAL.max_epochs / args.CUT.update_freq )
+            scheduler.params.num_training_steps = num_steps * (
+                    args.CUT.warmup + args.GENERAL.max_epochs / args.CUT.update_freq)
         if "num_warmup_steps" in scheduler.params:
             scheduler.params.num_warmup_steps = num_steps * args.CUT.warmup
-            
+
     nets = get_all_networks(args, accelerator)
     accelerator.wait_for_everyone()
+
+    logger.info(" *** Start pretrain classifier *** ")
+    if args.CLASSIFIER.pretrain.apply:
+        run_pretrain(args, loaders, nets, accelerator, writer,
+                     num_epoch=args.CLASSIFIER.pretrain.epochs, tqdm_no_progress=not accelerator.is_local_main_process)
 
     logger.info(" *** Start warmup classifier *** ")
     step, paths_for_selftrain = run(args, paths_from_train, None, args.CLASSIFIER.warmup, -1, accelerator, writer, nets,
