@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from accelerate import Accelerator
 from munch import Munch
-
+from torch.nn import SyncBatchNorm
 from gan_utils import GANLoss, PatchNCELoss
 from netD import NLayerDiscriminator
 from netF import PatchSampleF
@@ -128,7 +128,8 @@ class CUT(nn.Module):
 
 
 def get_gan_networks(args, accelerator: Accelerator):
-    model = CUT(args).to(accelerator.device)
+    model = CUT(args).to(accelerator.device).double()
+    model = SyncBatchNorm.convert_sync_batchnorm(model)
     # model = torch.compile(model)
 
     B = args.CUT.batch_size

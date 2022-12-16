@@ -1,7 +1,8 @@
-from cut import get_gan_networks
-from classifier import get_classifier_networks
 from accelerate import Accelerator
 from munch import Munch
+
+from classifier import get_classifier_networks
+from cut import get_gan_networks
 
 
 def get_all_networks(args, accelerator: Accelerator):

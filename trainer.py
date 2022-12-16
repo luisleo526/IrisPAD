@@ -215,10 +215,10 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
         for batch in loaders.pretrain.dl:
 
             results = Munch()
-            for i in range(len(args.CLASSIFIER.model.extractor.features)):
-                results.update({f"feature_{i}": Munch()})
+            for layer_name in nets.classifier.model.return_nodes:
+                results.update({f"{layer_name}": Munch()})
                 for j in range(len(args.CLASSIFIER.pretrain.config.num_crops)):
-                    results[f"feature_{i}"].update({f"Group_{j}": 0})
+                    results[f"{layer_name}"].update({f"{j}": 0})
 
             losses = nets.classifier.model(batch, pretrain=True)
             loss_sum = 0
@@ -226,7 +226,7 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
                 for i, loss in enumerate(loss_list):
                     loss_sum += loss
                     loss = accelerator.gather_for_metrics(loss.detach())
-                    results[name][f"Group_{i}"] += loss.sum().item()
+                    results[name][f"{i}"] += loss.sum().item()
 
             accelerator.backward(loss_sum)
             nets.classifier.optimizers.optim.step()
@@ -235,7 +235,7 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
 
             if accelerator.is_main_process:
                 for key, value in results.items():
-                    writer.add_scalars(f"PRETRAIN/{key}_losses", dict(value), global_step=step)
+                    writer.add_scalars(f"PRETRAIN/{key}", dict(value), global_step=step)
                 writer.flush()
                 step += 1
 

@@ -54,7 +54,7 @@ def _make_data_loader(args, accelerator: Accelerator, vocab: Vocab, label_0: Lis
             batch['image'].append(transform(path))
             batch['path'].append(vocab.word2index(path))
             batch['label'].append(label)
-        batch['image'] = torch.stack(batch['image'])
+        batch['image'] = torch.stack(batch['image']).double()
         batch['label'] = torch.tensor(batch['label'])
         batch['path'] = torch.tensor(batch['path'], dtype=torch.int32)
         return batch

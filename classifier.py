@@ -8,24 +8,26 @@ from torchvision.models.feature_extraction import create_feature_extractor
 from multicropdataset import get_pseudo_label
 from supconloss import SupConLoss
 from utils import get_class, rsetattr, init_net
-
+from torch.nn import SyncBatchNorm
 
 class Classifier(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.model = get_class(args.CLASSIFIER.model.type)(**args.CLASSIFIER.model.params)
-        for replacement in args.CLASSIFIER.model.replacements:
-            net = get_class(replacement.type)(**replacement.params)
-            net = init_net(net, **args.CLASSIFIER.net_init)
-            rsetattr(self.model, replacement.name, net)
+        if 'replacements' in args.CLASSIFIER.model and len(args.CLASSIFIER.model.replacements) > 0:
+            for replacement in args.CLASSIFIER.model.replacements:
+                net = get_class(replacement.type)(**replacement.params)
+                net = init_net(net, **args.CLASSIFIER.net_init)
+                rsetattr(self.model, replacement.name, net)
         if args.CLASSIFIER.model.params.weights is None:
             self.model = init_net(self.model, **args.CLASSIFIER.net_init)
 
         return_nodes = {args.CLASSIFIER.model.extractor.output: 'output'}
-        for i, layer in enumerate(args.CLASSIFIER.model.extractor.features):
-            return_nodes[layer] = f"feature_{i}"
+        for layer_name in args.CLASSIFIER.model.extractor:
+            if layer_name != 'output':
+                for i, layer in enumerate(args.CLASSIFIER.model.extractor[layer_name]):
+                    return_nodes[layer] = f"{layer_name}-{i}"
         self.model = create_feature_extractor(self.model, return_nodes=return_nodes)
-        self.model.double()
 
         self.loss_fn = nn.CrossEntropyLoss(reduction='sum')
         self.pad_token_id = args.CLASSIFIER.pad_token_id
@@ -76,7 +78,8 @@ class Classifier(nn.Module):
 
 
 def get_classifier_networks(args, accelerator: Accelerator):
-    model = Classifier(args).to(accelerator.device)
+    model = Classifier(args).to(accelerator.device).double()
+    model = SyncBatchNorm.convert_sync_batchnorm(model)
     # model = torch.compile(model)
     optimizer = get_class(args.CLASSIFIER.optimizer.type)(model.parameters(), **args.CLASSIFIER.optimizer.params)
     scheduler = get_class(args.CLASSIFIER.scheduler.type)(optimizer, **args.CLASSIFIER.scheduler.params)
