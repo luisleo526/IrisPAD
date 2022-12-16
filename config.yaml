@@ -55,13 +55,13 @@ CLASSIFIER:
   pretrain:
     batch_size: 8
     apply: True
-    epochs: 250
+    epochs: 5
     temperature: 0.07
     config:
       num_crops: [ 2, 4 ]
       crop_sizes: [ 224, 96 ]
-      min_scale: [ 0.2, 0.1 ]
-      max_scale: [ 0.8, 0.4 ]
+      min_scale: [ 0.15, 0.05 ]
+      max_scale: [ 1.0,  0.4 ]
       distortion_strength: 1.0
       sigma_range: [ 0.1, 2.0 ]
       gaussian_std: [ 0.05, 0.02 ]

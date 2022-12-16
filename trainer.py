@@ -209,7 +209,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryWriter, num_epoch: int,
                  tqdm_no_progress: bool):
     progress_bar = tqdm(range(num_epoch * len(loaders.pretrain.dl)), disable=tqdm_no_progress)
-    for step in range(num_epoch * len(loaders.pretrain.dl)):
+    for step in range(num_epoch):
 
         nets.classifier.model.train()
         for batch in loaders.pretrain.dl:
