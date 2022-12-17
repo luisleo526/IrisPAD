@@ -10,8 +10,8 @@ from munch import Munch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
-from create_networks import get_all_networks
-from datasets import make_data_loader
+from model.create_networks import get_all_networks
+from dataset.datasets import make_data_loader
 from trainer import run, run_pretrain
 
 logger = get_logger(__name__)

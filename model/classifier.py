@@ -5,9 +5,9 @@ from accelerate import Accelerator
 from munch import Munch
 from torchvision.models.feature_extraction import create_feature_extractor
 
-from multicropdataset import get_pseudo_label
-from supconloss import SupConLoss
-from utils import get_class, rsetattr, init_net
+from dataset.multicropdataset import get_pseudo_label
+from model.supconloss import SupConLoss
+from utils.utils import get_class, rsetattr, init_net
 from torch.nn import SyncBatchNorm
 
 class Classifier(nn.Module):

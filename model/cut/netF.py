@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from utils import init_net
+from utils.utils import init_net
 
 
 class Normalize(nn.Module):

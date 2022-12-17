@@ -2,7 +2,7 @@ import functools
 
 import torch.nn as nn
 
-from gan_utils import get_norm_layer, Downsample
+from .gan_utils import get_norm_layer, Downsample
 
 
 class NLayerDiscriminator(nn.Module):

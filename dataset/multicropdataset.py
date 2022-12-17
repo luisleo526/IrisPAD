@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.datasets.folder import find_classes, make_dataset
 
-from transforms import MultiCropTransform
+from .transforms import MultiCropTransform
 
 
 class MultiCropDataset(Dataset):

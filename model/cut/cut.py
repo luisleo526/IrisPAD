@@ -4,11 +4,11 @@ import torch.nn as nn
 from accelerate import Accelerator
 from munch import Munch
 from torch.nn import SyncBatchNorm
-from gan_utils import GANLoss, PatchNCELoss
-from netD import NLayerDiscriminator
-from netF import PatchSampleF
-from netG import ResnetGenerator
-from utils import get_class, init_net
+from .gan_utils import GANLoss, PatchNCELoss
+from .netD import NLayerDiscriminator
+from .netF import PatchSampleF
+from .netG import ResnetGenerator
+from utils.utils import get_class, init_net
 
 
 def set_requires_grad(nets, requires_grad=False):

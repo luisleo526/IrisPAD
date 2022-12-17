@@ -10,9 +10,9 @@ from monai.data.utils import partition_dataset, resample_datalist
 from munch import Munch
 from torchvision.datasets.folder import find_classes, make_dataset
 
-from multicropdataset import MultiCropDataset
-from transforms import TransformFromPath
-from vocab import Vocab
+from .multicropdataset import MultiCropDataset
+from .transforms import TransformFromPath
+from utils.vocab import Vocab
 
 
 def make_data_loader(args, accelerator: Accelerator):

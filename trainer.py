@@ -2,9 +2,9 @@ import torch
 from munch import Munch
 from tqdm.auto import tqdm
 
-from datasets import make_gan_loader, _make_data_loader
-from metrics import ISOMetrics
-from vocab import Vocab
+from dataset.datasets import make_gan_loader, _make_data_loader
+from utils.metrics import ISOMetrics
+from utils.vocab import Vocab
 from accelerate import Accelerator
 from torch.utils.tensorboard import SummaryWriter
 from typing import Optional, List
