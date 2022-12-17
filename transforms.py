@@ -95,5 +95,6 @@ class GaussianNoise(object):
         self.std = std
 
     def __call__(self, img: torch.Tensor):
-        noise = torch.from_numpy(np.random.normal(self.mean, self.std, size=list(img.shape))).double().to(img.device)
+        noise = torch.from_numpy(np.random.normal(self.mean, self.std, size=list(img.shape))).to(img.device)
+        noise = noise.to(img.dtype)
         return img + noise

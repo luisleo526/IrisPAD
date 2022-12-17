@@ -34,7 +34,7 @@ def make_data_loader(args, accelerator: Accelerator):
             for samples in samples_list:
                 for i, sample in enumerate(samples):
                     outputs[i].append(sample)
-            outputs = [torch.stack(x).double() for x in outputs]
+            outputs = [torch.stack(x) for x in outputs]
             return outputs
 
         dl = ThreadDataLoader(MultiCropDataset(args), batch_size=args.CLASSIFIER.pretrain.batch_size,
@@ -54,7 +54,7 @@ def _make_data_loader(args, accelerator: Accelerator, vocab: Vocab, label_0: Lis
             batch['image'].append(transform(path))
             batch['path'].append(vocab.word2index(path))
             batch['label'].append(label)
-        batch['image'] = torch.stack(batch['image']).double()
+        batch['image'] = torch.stack(batch['image'])
         batch['label'] = torch.tensor(batch['label'])
         batch['path'] = torch.tensor(batch['path'], dtype=torch.int32)
         return batch

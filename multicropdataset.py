@@ -27,8 +27,11 @@ class MultiCropDataset(Dataset):
         _outputs = [self.transform(self.samples[x]) for x in index]
         outputs = [[] for _ in range(len(_outputs[0]))]
         for i in range(len(outputs)):
-            outputs[i].extend([x[i].double() for x in _outputs])
-        return [torch.cat(x) for x in outputs]
+            outputs[i].extend([x[i] for x in _outputs])
+        if len(index) > 1:
+            return [torch.stack(x) for x in outputs]
+        else:
+            return [x[0] for x in outputs]
 
 
 def get_pseudo_label(args):

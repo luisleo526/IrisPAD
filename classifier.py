@@ -21,29 +21,27 @@ class Classifier(nn.Module):
                 rsetattr(self.model, replacement.name, net)
         if args.CLASSIFIER.model.params.weights is None:
             self.model = init_net(self.model, **args.CLASSIFIER.net_init)
-
-        return_nodes = {args.CLASSIFIER.model.extractor.output: 'output'}
-        for layer_name in args.CLASSIFIER.model.extractor:
-            if layer_name != 'output':
-                for i, layer in enumerate(args.CLASSIFIER.model.extractor[layer_name]):
-                    return_nodes[layer] = f"{layer_name}-{i}"
-        self.model = create_feature_extractor(self.model, return_nodes=return_nodes)
-
+        
         self.loss_fn = nn.CrossEntropyLoss(reduction='sum')
         self.pad_token_id = args.CLASSIFIER.pad_token_id
         self.confidence_selfTraining = args.CLASSIFIER.confidence_selfTraining
         self.confidence_CUT = args.CLASSIFIER.confidence_CUT
 
-        self.ConLoss = SupConLoss(temperature=args.CLASSIFIER.pretrain.temperature)
-        self.ConLabel = get_pseudo_label(args)
-        self.ConNCrops = np.cumsum([0] + args.CLASSIFIER.pretrain.config.num_crops).tolist()
-        self.return_nodes = list(return_nodes.values())
-        self.return_nodes.remove("output")
+        if args.CLASSIFIER.pretrain.apply:
+            return_nodes = {}
+            for layer_name in args.CLASSIFIER.model.extractor:
+                for i, layer in enumerate(args.CLASSIFIER.model.extractor[layer_name]):
+                    return_nodes[layer] = f"{layer_name}-{i}"
+            self.extractor = create_feature_extractor(self.model, return_nodes=return_nodes)
+            self.ConLoss = SupConLoss(temperature=args.CLASSIFIER.pretrain.temperature)
+            self.ConLabel = get_pseudo_label(args)
+            self.ConNCrops = np.cumsum([0] + args.CLASSIFIER.pretrain.config.num_crops).tolist()
+            self.return_nodes = list(return_nodes.values())
 
     def forward(self, batch, pretrain=False):
 
         if not pretrain:
-            output = self.model(batch['image'])['output']
+            output = self.model(batch['image'])
             loss = self.loss_fn(output, batch['label'])
 
             padding = [torch.tensor(self.pad_token_id, device=batch['image'].device, dtype=torch.int32)]
@@ -64,7 +62,7 @@ class Classifier(nn.Module):
             return Munch(loss=loss, pred=pred_all, label_0=label_0, label_1=label_1,
                          label_0_mask=label_0_mask, label_1_mask=label_1_mask)
         else:
-            _output = [self.model(x) for x in batch]
+            _output = [self.extractor(x) for x in batch]
             output = {}
             for layer_name in self.return_nodes:
                 output[layer_name] = []
@@ -78,7 +76,7 @@ class Classifier(nn.Module):
 
 
 def get_classifier_networks(args, accelerator: Accelerator):
-    model = Classifier(args).to(accelerator.device).double()
+    model = Classifier(args).to(accelerator.device)
     model = SyncBatchNorm.convert_sync_batchnorm(model)
     # model = torch.compile(model)
     optimizer = get_class(args.CLASSIFIER.optimizer.type)(model.parameters(), **args.CLASSIFIER.optimizer.params)
