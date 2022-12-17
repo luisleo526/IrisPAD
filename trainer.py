@@ -15,6 +15,8 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         use_gan: bool, iterative: bool, warmup: bool, train_gan: bool, tqdm_no_progress: bool, self_training: bool,
         self_training_refresh: bool):
     pad_token_id = args.CLASSIFIER.pad_token_id
+    if self_training_refresh:
+        paths_for_selftraining = None
 
     for _ in tqdm(range(num_epoch), disable=tqdm_no_progress):
         step += 1

@@ -55,7 +55,7 @@ CLASSIFIER:
   self_training: True
   pretrain:
     batch_size: 8
-    apply: True
+    apply: False
     epochs: 5
     temperature: 0.07
     config:
