@@ -22,12 +22,12 @@ GENERAL:
           - /data/dataset/LivDet2017/Clarkson/test
           - /data/dataset/LivDet2017/IIIT_WVU/test
           - /data/dataset/LivDet2017/NotreDame/test
-      IIIT_WVU:
+      Clarkson:
         config:
           skip: False
           selftraing: False
         paths:
-          - /data/dataset/LivDet2017/IIIT_WVU/train
+          - /data/dataset/LivDet2017/Clarkson/train
     test:
       Clarkson:
         config:
@@ -52,7 +52,7 @@ CLASSIFIER:
   batch_size: 32
   warmup: 30
   pad_token_id: -1
-  self_training: True
+  self_training: False
   pretrain:
     batch_size: 8
     apply: True
@@ -114,7 +114,7 @@ CLASSIFIER:
 
 CUT:
   flip_prob: 0.1
-  batch_size: 16
+  batch_size: 8
   apply: False
   iterative: True
   update_freq: 5

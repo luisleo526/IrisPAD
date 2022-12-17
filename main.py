@@ -82,8 +82,8 @@ def main(args):
     nets = get_all_networks(args, accelerator)
     accelerator.wait_for_everyone()
 
-    logger.info(" *** Start pretrain classifier *** ")
     if args.CLASSIFIER.pretrain.apply:
+        logger.info(" *** Start pretrain classifier *** ")
         run_pretrain(args, loaders, nets, accelerator, writer,
                      num_epoch=args.CLASSIFIER.pretrain.epochs, tqdm_no_progress=not accelerator.is_local_main_process)
 
