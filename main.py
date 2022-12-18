@@ -49,7 +49,7 @@ def main(args):
     loaders, paths, vocab = make_data_loader(args, accelerator)
     paths_from_train = Munch(label_0=[], label_1=[])
     for data in paths.train.values():
-        if not data.config.skip and not data.config.selftraing:
+        if not data.config.skip and not data.config.selftraining:
             paths_from_train.label_0.extend(data.label_0)
             paths_from_train.label_1.extend(data.label_1)
 
@@ -58,9 +58,11 @@ def main(args):
     train_steps = 0
     for loader in loaders.train.values():
         index = 2 if self_training else 1
+        if loader.config.selftraining and not self_training:
+            index = 0
         warmup_steps += len(loader.dl) * args.CLASSIFIER.warmup * index
         if not loader.config.skip:
-            train_steps += len(loader.dl) * (args.CLASSIFIER.warmup * index + args.GENERAL.max_epochs)
+            train_steps += len(loader.dl) * args.GENERAL.max_epochs
 
     if "num_training_steps" in args.CLASSIFIER.scheduler.params:
         args.CLASSIFIER.scheduler.params.num_training_steps = warmup_steps + train_steps

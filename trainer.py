@@ -27,9 +27,11 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
             results.update({key: Munch()})
 
         # train classifier
+        pr_data = Munch()
         for name, loader in loaders.train.items():
             if (not loader.config.skip and not warmup) or warmup:
-                if not loader.config.selftraing:
+                if not loader.config.selftraining:
+                    pr_data.update({name: Munch(confid=[], truth=[])})
                     nets.classifier.model.train()
                     for batch in loader.dl:
                         if not warmup and use_gan:
@@ -53,8 +55,6 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                                     new_images = accelerator.unwrap_model(nets.cut.model).a2b(batch['image'])
                                     new_labels = batch['labels']
                                     new_paths = batch['path']
-                            mask = torch.rand(new_labels.shape, device=accelerator.device) < args.CUT.flip_prob
-                            new_labels[mask] = 1 - new_labels[mask]
                             batch["image"] = torch.cat([batch["image"], new_images])
                             batch["label"] = torch.cat([batch["label"], new_labels])
                             batch["path"] = torch.cat([batch["path"], new_paths])
@@ -69,12 +69,19 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                             (outputs.pred, batch['label'], outputs.loss.detach()))
                         metrics(pred, tgt, loss)
 
+                        # PR curve data
+                        pred_confidence, align_label = accelerator.gather_for_metrics(
+                            (outputs.pred_confidence, outputs.align_label))
+                        pr_data[name].confid.append(pred_confidence)
+                        pr_data[name].truth.append(align_label)
+
                     nets.classifier.optimizers.optim.step()
 
                     for key, value in metrics.aggregate().items():
                         results[key].update({name: value})
                 else:
                     if self_training:
+                        pr_data.update({name: Munch(confid=[], truth=[])})
                         if paths_for_selftraining is None:
                             paths_for_selftraining = Munch(label_0=[], label_1=[])
 
@@ -115,12 +122,22 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                             pred, tgt, loss = accelerator.gather_for_metrics(
                                 (outputs.pred, batch['label'], outputs.loss.detach()))
                             metrics(pred, tgt, loss)
+
+                            # PR curve data
+                            pred_confidence, align_label = accelerator.gather_for_metrics(
+                                (outputs.pred_confidence, outputs.align_label))
+                            pr_data[name].confid.append(pred_confidence)
+                            pr_data[name].truth.append(align_label)
+
                         for key, value in metrics.aggregate().items():
                             results[key].update({name: value})
 
         if accelerator.is_main_process:
             for key, value in results.items():
                 writer.add_scalars(f"TRAIN/{key}", dict(value), global_step=step)
+            for name, data in pr_data.items():
+                writer.add_pr_curve(f"TRAIN/pr_curve/{name}", labels=torch.cat(data.truth),
+                                    predictions=torch.cat(data.confid), global_step=step)
             writer.flush()
 
         results = Munch()
@@ -129,7 +146,9 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 
         # test classifier
         paths_from_test = Munch(label_0=[], label_1=[])
+        pr_data = Munch()
         for name, loader in loaders.test.items():
+            pr_data.update({name: Munch(confid=[], truth=[])})
             nets.classifier.model.eval()
             for batch in loader.dl:
                 with torch.no_grad():
@@ -137,6 +156,13 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                     pred, tgt, loss = accelerator.gather_for_metrics(
                         (outputs.pred, batch['label'], outputs.loss.detach()))
                     metrics(pred, tgt, loss)
+
+                    # PR curve data
+                    pred_confidence, align_label = accelerator.gather_for_metrics(
+                        (outputs.pred_confidence, outputs.align_label))
+                    pr_data[name].confid.append(pred_confidence)
+                    pr_data[name].truth.append(align_label)
+
                     if loader.config.gan:
                         label_0 = accelerator.pad_across_processes(outputs.label_0,
                                                                    dim=0, pad_index=pad_token_id,
@@ -155,6 +181,9 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         if accelerator.is_main_process:
             for key, value in results.items():
                 writer.add_scalars(f"TEST/{key}", dict(value), global_step=step)
+            for name, data in pr_data.items():
+                writer.add_pr_curve(f"TEST/pr_curve/{name}", labels=torch.cat(data.truth),
+                                    predictions=torch.cat(data.confid), global_step=step)
             writer.flush()
 
         if use_gan and train_gan:

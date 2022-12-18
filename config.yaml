@@ -14,18 +14,18 @@ GENERAL:
       SelfTraining:
         config:
           skip: False
-          selftraing: True
+          selftraining: True
         paths:
-          - /data/dataset/LivDet2017/Clarkson/train
-          - /data/dataset/LivDet2017/IIIT_WVU/train
-          - /data/dataset/LivDet2017/NotreDame/train
+          # - /data/dataset/LivDet2017/Clarkson/train
           - /data/dataset/LivDet2017/Clarkson/test
+          - /data/dataset/LivDet2017/IIIT_WVU/train
           - /data/dataset/LivDet2017/IIIT_WVU/test
+          - /data/dataset/LivDet2017/NotreDame/train
           - /data/dataset/LivDet2017/NotreDame/test
       Clarkson:
         config:
           skip: False
-          selftraing: False
+          selftraining: False
         paths:
           - /data/dataset/LivDet2017/Clarkson/train
     test:
@@ -121,8 +121,8 @@ CUT:
   warmup: 30
   flip_equivariance: False
   lambda_GAN: 1.0
-  lambda_NCE: 5.0
-  nce_layers: [ 0,4,8,12,16 ]
+  lambda_NCE: 1.0
+  nce_layers: [ 0,4,8,12,16,20 ]
   nce_T: 0.07
   nce_idt: True
   mode: lsgan
@@ -152,8 +152,8 @@ CUT:
       init_gain: 0.02
   netD:
     params:
-      ndf: 128
-      n_layers: 5
+      ndf: 64
+      n_layers: 3
       no_antialias: False
       norm: batch
     optimizer:
@@ -174,8 +174,8 @@ CUT:
   netF:
     params:
       use_mlp: True
-      nc: 256
-      num_patches: 128
+      nc: 512
+      num_patches: 256
     optimizer:
       type: torch.optim.Adam
       params:

@@ -10,6 +10,7 @@ from model.supconloss import SupConLoss
 from utils.utils import get_class, rsetattr, init_net
 from torch.nn import SyncBatchNorm
 
+
 class Classifier(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -21,7 +22,7 @@ class Classifier(nn.Module):
                 rsetattr(self.model, replacement.name, net)
         if args.CLASSIFIER.model.params.weights is None:
             self.model = init_net(self.model, **args.CLASSIFIER.net_init)
-        
+
         self.loss_fn = nn.CrossEntropyLoss(reduction='sum')
         self.pad_token_id = args.CLASSIFIER.pad_token_id
         self.confidence_selfTraining = args.CLASSIFIER.confidence_selfTraining
@@ -45,21 +46,27 @@ class Classifier(nn.Module):
             loss = self.loss_fn(output, batch['label'])
 
             padding = [torch.tensor(self.pad_token_id, device=batch['image'].device, dtype=torch.int32)]
-            pred_all = output.argmax(dim=-1)
+            pred_label = output.argmax(dim=-1).detach()
+            pred_confidence = torch.nn.Softmax(dim=-1)(output).detach()
 
-            mask = (torch.nn.Softmax(dim=-1)(output)).max(dim=-1)[0] > self.confidence_CUT
+            mask = pred_confidence.max(dim=-1)[0] > self.confidence_CUT
             paths = batch['path'][mask]
-            preds = pred_all[mask]
+            preds = pred_label[mask]
             label_0 = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
             label_1 = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
 
-            mask = (torch.nn.Softmax(dim=-1)(output)).max(dim=-1)[0] > self.confidence_selfTraining
+            mask = pred_confidence.max(dim=-1)[0] > self.confidence_selfTraining
             paths = batch['path'][mask]
-            preds = pred_all[mask]
+            preds = pred_label[mask]
             label_0_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
             label_1_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
 
-            return Munch(loss=loss, pred=pred_all, label_0=label_0, label_1=label_1,
+            pred_confidence = torch.cat(
+                [pred_confidence[batch['label'] == 0][:, 0], pred_confidence[batch['label'] == 1][:, 1]])
+            align_label = torch.cat([batch['label'][batch['label']==0], batch['label'][batch['label']==1]])
+
+            return Munch(loss=loss, pred=pred_label, pred_confidence=pred_confidence, align_label=align_label,
+                         label_0=label_0, label_1=label_1,
                          label_0_mask=label_0_mask, label_1_mask=label_1_mask)
         else:
             _output = [self.extractor(x) for x in batch]
