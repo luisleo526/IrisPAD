@@ -135,7 +135,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         if accelerator.is_main_process:
             for key, value in results.items():
                 writer.add_scalars(f"TRAIN/{key}", dict(value), global_step=step)
-            fig, ax = plt.subplots(dpi=300)
+            fig, ax = plt.subplots(dpi=100, figsize=(6, 6))
             ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
             for name, data in pr_data.items():
                 writer.add_pr_curve(f"TRAIN/pr_curve/{name}", labels=torch.cat(data.truth),
@@ -186,7 +186,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         if accelerator.is_main_process:
             for key, value in results.items():
                 writer.add_scalars(f"TEST/{key}", dict(value), global_step=step)
-            fig, ax = plt.subplots(dpi=300)
+            fig, ax = plt.subplots(dpi=100, figsize=(6, 6))
             ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
             for name, data in pr_data.items():
                 writer.add_pr_curve(f"TEST/pr_curve/{name}", labels=torch.cat(data.truth),
