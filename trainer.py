@@ -1,15 +1,16 @@
+from typing import Optional, List
+
+import matplotlib.pyplot as plt
 import torch
+from accelerate import Accelerator
 from munch import Munch
+from sklearn.metrics import RocCurveDisplay
+from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
 from dataset.datasets import make_gan_loader, _make_data_loader
 from utils.metrics import ISOMetrics
 from utils.vocab import Vocab
-from accelerate import Accelerator
-from torch.utils.tensorboard import SummaryWriter
-from typing import Optional, List
-import matplotlib.pyplot as plt
-from sklearn.metrics import RocCurveDisplay
 
 
 def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: int,

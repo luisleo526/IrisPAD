@@ -113,7 +113,6 @@ CLASSIFIER:
     init_gain: 0.02
 
 CUT:
-  flip_prob: 0.1
   batch_size: 8
   apply: True
   iterative: True
@@ -121,16 +120,16 @@ CUT:
   warmup: 30
   flip_equivariance: False
   lambda_GAN: 1.0
-  lambda_NCE: 1.0
+  lambda_NCE: 10.0
   nce_layers: [ 0,4,8,12,16,20 ]
-  nce_T: 0.07
+  nce_T: 0.15
   nce_idt: True
   mode: lsgan
   netG:
     params:
       ngf: 128
       norm: batch
-      use_dropout: False
+      use_dropout: True
       n_blocks: 9
       padding_type: reflect
       no_antialias: False
@@ -152,7 +151,7 @@ CUT:
       init_gain: 0.02
   netD:
     params:
-      ndf: 64
+      ndf: 128
       n_layers: 3
       no_antialias: False
       norm: batch
