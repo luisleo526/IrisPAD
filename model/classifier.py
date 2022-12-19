@@ -61,11 +61,9 @@ class Classifier(nn.Module):
             label_0_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
             label_1_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
 
-            pred_confidence = torch.cat(
-                [pred_confidence[batch['label'] == 0][:, 0], pred_confidence[batch['label'] == 1][:, 1]])
-            align_label = torch.cat([batch['label'][batch['label']==0], batch['label'][batch['label']==1]])
+            pred_confidence = pred_confidence[:,1]
 
-            return Munch(loss=loss, pred=pred_label, pred_confidence=pred_confidence, align_label=align_label,
+            return Munch(loss=loss, pred=pred_label, pred_confidence=pred_confidence,
                          label_0=label_0, label_1=label_1,
                          label_0_mask=label_0_mask, label_1_mask=label_1_mask)
         else:
@@ -91,6 +89,7 @@ def get_classifier_networks(args, accelerator: Accelerator):
     if args.CLASSIFIER.pretrain.apply:
         scheduler_pretrain = get_class(args.CLASSIFIER.pretrain.scheduler.type)(
             optimizer, **args.CLASSIFIER.pretrain.scheduler.params)
+        scheduler_pretrain = accelerator.prepare([scheduler_pretrain])
     else:
         scheduler_pretrain = None
     model, optimizer, scheduler = accelerator.prepare([model, optimizer, scheduler])

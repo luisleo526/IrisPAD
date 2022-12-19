@@ -8,6 +8,8 @@ from utils.vocab import Vocab
 from accelerate import Accelerator
 from torch.utils.tensorboard import SummaryWriter
 from typing import Optional, List
+import matplotlib.pyplot as plt
+from sklearn.metrics import RocCurveDisplay
 
 
 def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: int,
@@ -70,10 +72,9 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         metrics(pred, tgt, loss)
 
                         # PR curve data
-                        pred_confidence, align_label = accelerator.gather_for_metrics(
-                            (outputs.pred_confidence, outputs.align_label))
+                        pred_confidence = accelerator.gather_for_metrics(outputs.pred_confidence.contiguous())
                         pr_data[name].confid.append(pred_confidence)
-                        pr_data[name].truth.append(align_label)
+                        pr_data[name].truth.append(tgt)
 
                     nets.classifier.optimizers.optim.step()
 
@@ -124,10 +125,9 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                             metrics(pred, tgt, loss)
 
                             # PR curve data
-                            pred_confidence, align_label = accelerator.gather_for_metrics(
-                                (outputs.pred_confidence, outputs.align_label))
+                            pred_confidence = accelerator.gather_for_metrics(outputs.pred_confidence.contiguous())
                             pr_data[name].confid.append(pred_confidence)
-                            pr_data[name].truth.append(align_label)
+                            pr_data[name].truth.append(tgt)
 
                         for key, value in metrics.aggregate().items():
                             results[key].update({name: value})
@@ -135,9 +135,15 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         if accelerator.is_main_process:
             for key, value in results.items():
                 writer.add_scalars(f"TRAIN/{key}", dict(value), global_step=step)
+            fig, ax = plt.subplots()
+            ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
             for name, data in pr_data.items():
                 writer.add_pr_curve(f"TRAIN/pr_curve/{name}", labels=torch.cat(data.truth),
                                     predictions=torch.cat(data.confid), global_step=step)
+                RocCurveDisplay.from_predictions(y_true=torch.cat(data.truth).cpu().numpy(),
+                                                 y_pred=torch.cat(data.confid).cpu().numpy(),
+                                                 ax=ax, name=name)
+            writer.add_figure("ROC/TRAIN", figure=fig, global_step=step)
             writer.flush()
 
         results = Munch()
@@ -158,10 +164,9 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                     metrics(pred, tgt, loss)
 
                     # PR curve data
-                    pred_confidence, align_label = accelerator.gather_for_metrics(
-                        (outputs.pred_confidence, outputs.align_label))
+                    pred_confidence = accelerator.gather_for_metrics(outputs.pred_confidence.contiguous())
                     pr_data[name].confid.append(pred_confidence)
-                    pr_data[name].truth.append(align_label)
+                    pr_data[name].truth.append(tgt)
 
                     if loader.config.gan:
                         label_0 = accelerator.pad_across_processes(outputs.label_0,
@@ -181,9 +186,15 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         if accelerator.is_main_process:
             for key, value in results.items():
                 writer.add_scalars(f"TEST/{key}", dict(value), global_step=step)
+            fig, ax = plt.subplots()
+            ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
             for name, data in pr_data.items():
                 writer.add_pr_curve(f"TEST/pr_curve/{name}", labels=torch.cat(data.truth),
                                     predictions=torch.cat(data.confid), global_step=step)
+                RocCurveDisplay.from_predictions(y_true=torch.cat(data.truth).cpu().numpy(),
+                                                 y_pred=torch.cat(data.confid).cpu().numpy(),
+                                                 ax=ax, name=name)
+            writer.add_figure("ROC/TEST", figure=fig, global_step=step)
             writer.flush()
 
         if use_gan and train_gan:
