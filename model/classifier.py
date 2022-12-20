@@ -61,7 +61,7 @@ class Classifier(nn.Module):
             label_0_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
             label_1_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
 
-            pred_confidence = pred_confidence[:,1]
+            pred_confidence = pred_confidence[:, 1]
 
             return Munch(loss=loss, pred=pred_label, pred_confidence=pred_confidence,
                          label_0=label_0, label_1=label_1,
@@ -87,10 +87,14 @@ def get_classifier_networks(args, accelerator: Accelerator):
     optimizer = get_class(args.CLASSIFIER.optimizer.type)(model.parameters(), **args.CLASSIFIER.optimizer.params)
     scheduler = get_class(args.CLASSIFIER.scheduler.type)(optimizer, **args.CLASSIFIER.scheduler.params)
     if args.CLASSIFIER.pretrain.apply:
+        optimizer_pretrain = get_class(args.CLASSIFIER.pretrain.optimizer.type)(
+            model.parameters(), **args.CLASSIFIER.pretrain.optimizer.params)
         scheduler_pretrain = get_class(args.CLASSIFIER.pretrain.scheduler.type)(
-            optimizer, **args.CLASSIFIER.pretrain.scheduler.params)
-        scheduler_pretrain = accelerator.prepare([scheduler_pretrain])
+            optimizer_pretrain, **args.CLASSIFIER.pretrain.scheduler.params)
+        optimizer_pretrain, scheduler_pretrain = accelerator.prepare(optimizer_pretrain, scheduler_pretrain)
     else:
         scheduler_pretrain = None
-    model, optimizer, scheduler = accelerator.prepare([model, optimizer, scheduler])
-    return model, Munch(optim=optimizer, scheduler=scheduler, scheduler_pretrain=scheduler_pretrain)
+        optimizer_pretrain = None
+    model, optimizer, scheduler = accelerator.prepare(model, optimizer, scheduler)
+    return model, Munch(optim=optimizer, optim_pretrain=optimizer_pretrain,
+                        scheduler=scheduler, scheduler_pretrain=scheduler_pretrain)

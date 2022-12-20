@@ -6,9 +6,9 @@ GENERAL:
   max_epochs: 600
   data:
     pretrain:
-#      - /data/dataset/IrisCSD
-#      - /data/dataset/ND_CLD_2015
-#      - /data/dataset/ND_Contact_2010
+      - /data/dataset/IrisCSD
+      - /data/dataset/ND_CLD_2015
+      - /data/dataset/ND_Contact_2010
       - /data/dataset/LivDet2017
     train:
       SelfTraining:
@@ -56,7 +56,7 @@ CLASSIFIER:
   pretrain:
     batch_size: 8
     apply: False
-    epochs: 0
+    epochs: 5
     temperature: 0.07
     config:
       num_crops: [ 2, 4 ]
@@ -66,6 +66,10 @@ CLASSIFIER:
       distortion_strength: 1.0
       sigma_range: [ 0.1, 2.0 ]
       gaussian_std: [ 0.1, 0.05 ]
+    optimizer:
+      type: torch.optim.Adam
+      params:
+        lr: 1.0e-2
     scheduler:
       type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
       params:
@@ -97,9 +101,8 @@ CLASSIFIER:
         - features.5
         - features.3
   optimizer:
-    type: monai.optimizers.Novograd
+    type: torch.optim.Adam
     params:
-      amsgrad: True
       lr: 3.0e-3
       weight_decay: 1.0e-3
   scheduler:
@@ -120,9 +123,9 @@ CUT:
   warmup: 30
   flip_equivariance: False
   lambda_GAN: 1.0
-  lambda_NCE: 10.0
+  lambda_NCE: 0.5
   nce_layers: [ 0,4,8,12,16,20 ]
-  nce_T: 0.15
+  nce_T: 0.07
   nce_idt: True
   mode: lsgan
   netG:
@@ -178,8 +181,8 @@ CUT:
     optimizer:
       type: torch.optim.Adam
       params:
-        lr: 1.0e-3
-        betas: [ 0.75, 0.999 ]
+        lr: 3.0e-3
+        betas: [ 0.999, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
       type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup

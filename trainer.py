@@ -23,6 +23,11 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 
     for _ in tqdm(range(num_epoch), disable=tqdm_no_progress):
         step += 1
+        if accelerator.is_main_process:
+            for name, weight in accelerator.unwrap_model(nets.classifier.model).model.named_parameters():
+                writer.add_histogram(f"TRAIN_classifier/{name}", weight, step)
+            writer.flush()
+
         metrics = ISOMetrics()
 
         results = Munch()
@@ -245,14 +250,25 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                 for key, value in results.items():
                     writer.add_scalars(f"CUT/{cut_labels[key]}_losses", dict(value), global_step=step)
                 writer.flush()
+                if iterative:
+                    net_list = ['cut', 'cut2']
+                else:
+                    net_list = ['cut']
+                for main_net in net_list:
+                    for net in ['netD', 'netG', 'netF']:
+                        for name, weight in getattr(accelerator.unwrap_model(nets[main_net].model),
+                                                    net).named_parameters():
+                            writer.add_histogram(f"{main_net}_{net}/{name}", weight, step)
+                writer.flush()
 
     return step, paths_for_selftraining
 
 
 def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryWriter, num_epoch: int,
                  tqdm_no_progress: bool):
+    step = 0
     progress_bar = tqdm(range(num_epoch * len(loaders.pretrain.dl)), disable=tqdm_no_progress)
-    for step in range(num_epoch):
+    for _ in range(num_epoch):
 
         nets.classifier.model.train()
         for batch in loaders.pretrain.dl:
@@ -272,14 +288,18 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
                     results[name][f"{i}"] += loss.sum().item()
 
             accelerator.backward(loss_sum)
-            nets.classifier.optimizers.optim.step()
-            nets.classifier.optimizers.optim.zero_grad()
+            nets.classifier.optimizers.optim_pretrain.step()
+            nets.classifier.optimizers.optim_pretrain.zero_grad()
             nets.classifier.optimizers.scheduler_pretrain.step()
 
             if accelerator.is_main_process:
                 for key, value in results.items():
                     writer.add_scalars(f"PRETRAIN/{key}", dict(value), global_step=step)
                 writer.flush()
+                if step % 10 == 0:
+                    for name, weight in nets.classifier.model.model.named_parameters():
+                        writer.add_histogram(f"PRETRAIN_classifier/{name}", weight, step)
+                    writer.flush()
                 step += 1
 
             accelerator.wait_for_everyone()
