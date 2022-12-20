@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 from dataset.datasets import make_gan_loader, _make_data_loader
 from utils.metrics import ISOMetrics
 from utils.vocab import Vocab
-
+import inspect
 
 def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: int,
         accelerator: Accelerator, writer: Optional[SummaryWriter], nets, loaders, vocab: Vocab,
@@ -71,7 +71,6 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         accelerator.backward(outputs.loss)
                         nets.classifier.optimizers.optim.step()
                         nets.classifier.optimizers.optim.zero_grad()
-                        nets.classifier.optimizers.scheduler.step()
 
                         pred, tgt, loss = accelerator.gather_for_metrics(
                             (outputs.pred, batch['label'], outputs.loss.detach()))
@@ -124,7 +123,6 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                             accelerator.backward(outputs.loss)
                             nets.classifier.optimizers.optim.step()
                             nets.classifier.optimizers.optim.zero_grad()
-                            nets.classifier.optimizers.scheduler.step()
 
                             pred, tgt, loss = accelerator.gather_for_metrics(
                                 (outputs.pred, batch['label'], outputs.loss.detach()))
@@ -157,6 +155,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
             results.update({key: Munch()})
 
         # test classifier
+        acer_sum = 0
         paths_from_test = Munch(label_0=[], label_1=[])
         pr_data = Munch()
         for name, loader in loaders.test.items():
@@ -188,6 +187,15 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 
             for key, value in metrics.aggregate().items():
                 results[key].update({name: value})
+                if key == 'acer':
+                    acer_sum += value
+
+        scheduler = nets.classifier.optimizers.scheduler
+        if "metrics" in list(inspect.signature(scheduler.step).parameters):
+            scheduler.step(metrics=acer_sum)
+        else:
+            scheduler.step()
+            exit()
 
         if accelerator.is_main_process:
             for key, value in results.items():
@@ -223,6 +231,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 
             # train gan
             cut_labels = dict(cut="Label 0" if iterative else "cut", cut2="Label 1")
+            loss_dict = dict(netD="lossD", netG="lossG", netF="lossF")
             results = Munch()
             for name, loader in gan_lds.items():
                 results.update({name: Munch(lossG=0, lossD=0, lossF=0)})
@@ -239,7 +248,14 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                     for net in ['netD', 'netG', 'netF']:
                         nets[name].optimizers[net].optim.step()
                         nets[name].optimizers[net].optim.zero_grad()
-                        nets[name].optimizers[net].scheduler.step()
+
+                for net in ['netD', 'netG', 'netF']:
+                    scheduler = nets[name].optimizers[net].scheduler
+                    if "metrics" in list(inspect.signature(scheduler.step).parameters):
+                        scheduler.step(metrics=results[name][loss_dict[net]])
+                    else:
+                        scheduler.step()
+                        exit()
 
                 if accelerator.is_main_process:
                     writer.add_images(f"{cut_labels[name]}/RealImages", outputs.real, global_step=step)

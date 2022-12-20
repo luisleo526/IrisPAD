@@ -49,7 +49,7 @@ CLASSIFIER:
   confidence_selfTraining: 0.9
   confidence_CUT: 0.8
   refresh_selftraining: 10
-  batch_size: 32
+  batch_size: 64
   warmup: 30
   pad_token_id: -1
   self_training: False
@@ -103,14 +103,16 @@ CLASSIFIER:
   optimizer:
     type: torch.optim.Adam
     params:
-      lr: 3.0e-3
+      lr: 5.0e-3
       weight_decay: 1.0e-3
   scheduler:
-    type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
+    type: torch.optim.lr_scheduler.ReduceLROnPlateau
     params:
-      num_cycles: 10
-      num_warmup_steps: -1
-      num_training_steps: -1
+      mode: "min"
+      factor: 0.5
+      patience: 10
+      cooldown: 3
+      min_lr: 1.0e-6
   net_init:
     init_type: xavier
     init_gain: 0.02
@@ -140,15 +142,17 @@ CUT:
     optimizer:
       type: torch.optim.Adam
       params:
-        lr: 5.0e-4
+        lr: 1.0e-3
         betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
+      type: torch.optim.lr_scheduler.ReduceLROnPlateau
       params:
-        num_cycles: 10
-        num_warmup_steps: -1
-        num_training_steps: -1
+        mode: "min"
+        factor: 0.5
+        patience: 3
+        cooldown: 1
+        min_lr: 1.0e-6
     net_init:
       init_type: normal
       init_gain: 0.02
@@ -161,15 +165,17 @@ CUT:
     optimizer:
       type: torch.optim.Adam
       params:
-        lr: 5.0e-4
+        lr: 1.0e-3
         betas: [ 0.75, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
+      type: torch.optim.lr_scheduler.ReduceLROnPlateau
       params:
-        num_cycles: 10
-        num_warmup_steps: -1
-        num_training_steps: -1
+        mode: "min"
+        factor: 0.5
+        patience: 3
+        cooldown: 1
+        min_lr: 1.0e-6
     net_init:
       init_type: normal
       init_gain: 0.02
@@ -181,15 +187,17 @@ CUT:
     optimizer:
       type: torch.optim.Adam
       params:
-        lr: 3.0e-3
+        lr: 1.0e-3
         betas: [ 0.999, 0.999 ]
         weight_decay: 1.0e-3
     scheduler:
-      type: transformers.get_cosine_with_hard_restarts_schedule_with_warmup
+      type: torch.optim.lr_scheduler.ReduceLROnPlateau
       params:
-        num_cycles: 10
-        num_warmup_steps: -1
-        num_training_steps: -1
+        mode: "min"
+        factor: 0.5
+        patience: 3
+        cooldown: 1
+        min_lr: 1.0e-6
     net_init:
       init_type: normal
       init_gain: 0.02

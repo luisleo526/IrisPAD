@@ -53,34 +53,6 @@ def main(args):
             paths_from_train.label_0.extend(data.label_0)
             paths_from_train.label_1.extend(data.label_1)
 
-    # Estimate the number of steps
-    warmup_steps = 0
-    train_steps = 0
-    for loader in loaders.train.values():
-        index = 2 if self_training else 1
-        if loader.config.selftraining and not self_training:
-            index = 0
-        warmup_steps += len(loader.dl) * args.CLASSIFIER.warmup * index
-        if not loader.config.skip:
-            train_steps += len(loader.dl) * args.GENERAL.max_epochs
-
-    if "num_training_steps" in args.CLASSIFIER.scheduler.params:
-        args.CLASSIFIER.scheduler.params.num_training_steps = warmup_steps + train_steps
-    if "num_warmup_steps" in args.CLASSIFIER.scheduler.params:
-        args.CLASSIFIER.scheduler.params.num_warmup_steps = warmup_steps
-
-    if iterative:
-        num_steps = max(len(paths_from_train.label_0), len(paths_from_train.label_1)) // args.CUT.batch_size
-    else:
-        num_steps = len(paths_from_train.label_0 + paths_from_train.label_1) // args.CUT.batch_size
-
-    for scheduler in [args.CUT.netD.scheduler, args.CUT.netF.scheduler, args.CUT.netG.scheduler]:
-        if "num_training_steps" in scheduler.params:
-            scheduler.params.num_training_steps = num_steps * (
-                    args.CUT.warmup + args.GENERAL.max_epochs / args.CUT.update_freq)
-        if "num_warmup_steps" in scheduler.params:
-            scheduler.params.num_warmup_steps = num_steps * args.CUT.warmup
-
     nets = get_all_networks(args, accelerator)
     accelerator.wait_for_everyone()
 
