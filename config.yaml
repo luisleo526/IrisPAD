@@ -49,7 +49,7 @@ CLASSIFIER:
   confidence_selfTraining: 0.9
   confidence_CUT: 0.8
   refresh_selftraining: 10
-  batch_size: 32
+  batch_size: 128
   warmup: 30
   pad_token_id: -1
   self_training: False
@@ -108,18 +108,18 @@ CLASSIFIER:
     group:
       -
         params: features
-        lr: 5.0e-3
-        weight_decay: 1.0e-3
+        lr: 5.0e-4
       -
         params: classifier
-        lr: 5.0e-4
+        lr: 5.0e-3
+        weight_decay: 1.0e-3
   scheduler:
     type: torch.optim.lr_scheduler.ReduceLROnPlateau
     params:
       mode: "min"
-      factor: 0.67
-      patience: 10
-      cooldown: 3
+      factor: 0.3
+      patience: 15
+      cooldown: 10
       min_lr: 1.0e-8
   net_init:
     init_type: xavier

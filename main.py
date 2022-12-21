@@ -13,7 +13,9 @@ from tqdm.auto import tqdm
 from model.create_networks import get_all_networks
 from dataset.datasets import make_data_loader
 from trainer import run, run_pretrain
+import warnings
 
+warnings.filterwarnings("ignore")
 logger = get_logger(__name__)
 
 
@@ -43,8 +45,6 @@ def main(args):
         writer = SummaryWriter("./log", filename_suffix=args.GENERAL.name)
     else:
         writer = None
-
-    # accelerator.logger = logger
 
     loaders, paths, vocab = make_data_loader(args, accelerator)
     paths_from_train = Munch(label_0=[], label_1=[])
