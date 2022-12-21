@@ -84,7 +84,12 @@ def get_classifier_networks(args, accelerator: Accelerator):
     model = Classifier(args).to(accelerator.device)
     model = SyncBatchNorm.convert_sync_batchnorm(model)
     # model = torch.compile(model)
-    optimizer = get_class(args.CLASSIFIER.optimizer.type)(model.parameters(), **args.CLASSIFIER.optimizer.params)
+
+    params_groups = [dict(x) for x in args.CLASSIFIER.optimizer.group]
+    for p in params_groups:
+        p['params'] = getattr(model.model, p['params']).parameters()
+
+    optimizer = get_class(args.CLASSIFIER.optimizer.type)(params_groups, **args.CLASSIFIER.optimizer.params)
     scheduler = get_class(args.CLASSIFIER.scheduler.type)(optimizer, **args.CLASSIFIER.scheduler.params,
                                                           verbose=accelerator.is_local_main_process)
     if args.CLASSIFIER.pretrain.apply:
