@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--yaml", type=str, default="config.yaml")
+    parser.add_argument("--train_all", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -94,8 +95,28 @@ def main(args):
     if accelerator.is_main_process:
         writer.close()
 
+    accelerator.end_training()
+
 
 if __name__ == '__main__':
-    with open(parse_args().yaml, "r") as stream:
+
+    opts = parse_args()
+
+    with open(opts.yaml, "r") as stream:
         args = Munch.fromDict(yaml.load(stream, Loader=yaml.FullLoader))
-    main(args)
+
+    if opts.train_all:
+        for key, value in args.GENERAL.data.train.items():
+            if key in ["NotreDame", "IIIT_WVU", "Clarkson"]:
+                config = value
+                config.paths = [config.paths[0].replace(key, "_TMP_")]
+                del args.GENERAL.data.train[key]
+                break
+        for turn in ["NotreDame", "IIIT_WVU", "Clarkson"]:
+            config.paths = [x.replace("_TMP_", turn) for x in config.paths]
+            args.GENERAL.data.train.update({turn: config})
+            config.paths = [config.paths[0].replace(turn, "_TMP_")]
+            main(args)
+            del args.GENERAL.data.train[turn]
+    else:
+        main(args)
