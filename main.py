@@ -43,7 +43,7 @@ def main(args):
     )
     logger.info(accelerator.state, main_process_only=False)
     if accelerator.is_main_process:
-        writer = SummaryWriter("./log", filename_suffix=args.GENERAL.name)
+        writer = SummaryWriter(f"./log/{args.GENERAL.name}", filename_suffix=args.GENERAL.name)
     else:
         writer = None
 
@@ -94,13 +94,15 @@ def main(args):
 
     if accelerator.is_main_process:
         writer.close()
-
-    accelerator.end_training()
+        
+    accelerator.wait_for_everyone()
 
 
 if __name__ == '__main__':
 
     opts = parse_args()
+    
+    print(f"Loading {opts.yaml} ...")
 
     with open(opts.yaml, "r") as stream:
         args = Munch.fromDict(yaml.load(stream, Loader=yaml.FullLoader))
@@ -113,10 +115,11 @@ if __name__ == '__main__':
                 del args.GENERAL.data.train[key]
                 break
         for turn in ["NotreDame", "IIIT_WVU", "Clarkson"]:
+            args.GENERAL.name = turn
             config.paths = [x.replace("_TMP_", turn) for x in config.paths]
             args.GENERAL.data.train.update({turn: config})
-            config.paths = [config.paths[0].replace(turn, "_TMP_")]
             main(args)
+            config.paths = [config.paths[0].replace(turn, "_TMP_")]
             del args.GENERAL.data.train[turn]
     else:
         main(args)
