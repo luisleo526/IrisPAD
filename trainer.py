@@ -155,7 +155,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
             results.update({key: Munch()})
 
         # test classifier
-        acer_sum = 0
+        max_acer = 0
         paths_from_test = Munch(label_0=[], label_1=[])
         pr_data = Munch()
         for name, loader in loaders.test.items():
@@ -188,14 +188,13 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
             for key, value in metrics.aggregate().items():
                 results[key].update({name: value})
                 if key == 'acer':
-                    acer_sum += value
+                    max_acer = max(value, max_acer)
 
         scheduler = nets.classifier.optimizers.scheduler
         if "metrics" in list(inspect.signature(scheduler.step).parameters):
-            scheduler.step(metrics=acer_sum)
+            scheduler.step(metrics=max_acer)
         else:
             scheduler.step()
-            exit()
 
         if accelerator.is_main_process:
             for key, value in results.items():
@@ -249,13 +248,12 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         nets[name].optimizers[net].optim.step()
                         nets[name].optimizers[net].optim.zero_grad()
 
-                for net in ['netD', 'netG', 'netF']:
-                    scheduler = nets[name].optimizers[net].scheduler
-                    if "metrics" in list(inspect.signature(scheduler.step).parameters):
-                        scheduler.step(metrics=results[name][loss_dict[net]])
-                    else:
-                        scheduler.step()
-                        exit()
+                # for net in ['netD', 'netG', 'netF']:
+                #     scheduler = nets[name].optimizers[net].scheduler
+                #     if "metrics" in list(inspect.signature(scheduler.step).parameters):
+                #         scheduler.step(metrics=results[name][loss_dict[net]])
+                #     else:
+                #         scheduler.step()
 
                 if accelerator.is_main_process:
                     writer.add_images(f"{cut_labels[name]}/RealImages", outputs.real, global_step=step)
