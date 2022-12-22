@@ -14,6 +14,7 @@ from model.create_networks import get_all_networks
 from dataset.datasets import make_data_loader
 from trainer import run, run_pretrain
 import warnings
+from datetime import datetime
 
 from utils.tracker import Tracker
 
@@ -45,7 +46,7 @@ def main(args):
     )
     logger.info(accelerator.state, main_process_only=False)
     if accelerator.is_main_process:
-        writer = SummaryWriter(f"./log/{args.GENERAL.name}", filename_suffix=args.GENERAL.name)
+        writer = SummaryWriter(f"./log/{args.GENERAL.name}/{datetime.now().strftime('%Y%m%d-%H%M%S')}")
     else:
         writer = None
 
@@ -57,7 +58,7 @@ def main(args):
             paths_from_train.label_1.extend(data.label_1)
 
     nets = get_all_networks(args, accelerator)
-    nets.update(tracker=Tracker(milestones=args.GENERAL.milestones,
+    nets.update(tracker=Tracker(truncate=args.GENERAL.truncate,
                                 value_names=['acc', 'acer', 'apcer', 'bpcer'],
                                 ds_names=list(paths.test.keys())))
     accelerator.wait_for_everyone()
@@ -96,6 +97,11 @@ def main(args):
                                         iterative, warmup=False, train_gan=(epoch + 1) % args.CUT.update_freq == 0,
                                         tqdm_no_progress=True, self_training=self_training,
                                         self_training_refresh=epoch % args.CLASSIFIER.refresh_selftraining == 0)
+        
+        if accelerator.is_main_process:
+            if (epoch+1) in args.GENERAL.milestones:
+                writer.add_text("SummaryTable", nets.tracker.get_table(epoch+1).get_html_string(), global_step=step)
+            
 
     if accelerator.is_main_process:
         writer.close()
