@@ -3,9 +3,10 @@ GENERAL:
   seed: 47
   rgb: False
   resolution: &resolution [ 256, 256 ]
-  max_epochs: 300
+  max_epochs: 600
   milestones: [10, 150, 300]
   truncate: 10
+  warmup: 60
   data:
     pretrain:
       - /data/dataset/IrisCSD
@@ -51,8 +52,7 @@ CLASSIFIER:
   confidence_selfTraining: 0.9
   confidence_CUT: 0.8
   refresh_selftraining: 10
-  batch_size: 128
-  warmup: 30
+  batch_size: 32
   pad_token_id: -1
   self_training: False
   pretrain:
@@ -106,23 +106,23 @@ CLASSIFIER:
     type: torch.optim.Adam
     params:
       lr: 5.0e-3
-      weight_decay: 1.0e-3
+      weight_decay: 1.0e-4
     group:
       -
         params: features
-        lr: 5.0e-4
+        lr: 1.0e-3
       -
         params: classifier
-        lr: 5.0e-3
+        lr: 1.0e-4
         weight_decay: 1.0e-3
   scheduler:
     type: torch.optim.lr_scheduler.ReduceLROnPlateau
     params:
       mode: "min"
       factor: 0.3
-      patience: 15
+      patience: 20
       cooldown: 10
-      min_lr: 1.0e-8
+      min_lr: 1.0e-10
   net_init:
     init_type: xavier
     init_gain: 0.02
@@ -132,7 +132,6 @@ CUT:
   apply: True
   iterative: True
   update_freq: 5
-  warmup: 30
   flip_equivariance: False
   lambda_GAN: 1.0
   lambda_NCE: 0.5
@@ -145,7 +144,7 @@ CUT:
       ngf: 64
       norm: batch
       use_dropout: True
-      n_blocks: 9
+      n_blocks: 12
       padding_type: reflect
       no_antialias: False
       no_antialias_up: False
@@ -169,7 +168,7 @@ CUT:
   netD:
     params:
       ndf: 64
-      n_layers: 3
+      n_layers: 6
       no_antialias: False
       norm: batch
     optimizer:
@@ -226,6 +225,3 @@ AUGMENTATION:
     params:
       size: *resolution
       scale: !!python/tuple [ 0.6, 0.95 ]
-
-
-

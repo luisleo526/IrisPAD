@@ -71,12 +71,12 @@ def make_gan_loader(args, a_path, b_path, accelerator: Accelerator):
     b_path = [[x, 1] for x in b_path]
     a_bs = round(batch_size * len(a_path) / (len(a_path) + len(b_path)))
     b_bs = round(batch_size * len(b_path) / (len(a_path) + len(b_path)))
-    if a_bs == 0:
+    if a_bs < 1:
         a_bs = 1
-        b_bs = batch_size - b_bs
-    elif b_bs == 0:
+        b_bs = batch_size - a_bs
+    elif b_bs < 1:
         b_bs = 1
-        a_bs = batch_size - a_bs
+        a_bs = batch_size - b_bs
     a_num = math.ceil(len(a_path) / a_bs)
     b_num = math.ceil(len(b_path) / b_bs)
     a_path = partition_dataset(a_path, num_partitions=a_bs, shuffle=True, even_divisible=True)

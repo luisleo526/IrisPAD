@@ -7,7 +7,7 @@ from torchvision.models.feature_extraction import create_feature_extractor
 
 from dataset.multicropdataset import get_pseudo_label
 from model.supconloss import SupConLoss
-from utils.utils import get_class, rsetattr, init_net
+from utils.utils import get_class, rsetattr, init_net, rgetattr
 from torch.nn import SyncBatchNorm
 
 
@@ -48,24 +48,25 @@ class Classifier(nn.Module):
             padding = [torch.tensor(self.pad_token_id, device=batch['image'].device, dtype=torch.int32)]
             pred_label = output.argmax(dim=-1).detach()
             pred_confidence = torch.nn.Softmax(dim=-1)(output).detach()
-
+            
             mask = pred_confidence.max(dim=-1)[0] > self.confidence_CUT
             paths = batch['path'][mask]
             preds = pred_label[mask]
-            label_0 = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
-            label_1 = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
+            label_0_sftr = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
+            label_1_sftr = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
 
             mask = pred_confidence.max(dim=-1)[0] > self.confidence_selfTraining
             paths = batch['path'][mask]
             preds = pred_label[mask]
-            label_0_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
-            label_1_mask = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
+            label_0_cut = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 0])
+            label_1_cut = torch.stack(padding + [paths[x] for x in range(len(preds)) if preds[x].item() == 1])
 
             pred_confidence = pred_confidence[:, 1]
 
             return Munch(loss=loss, pred=pred_label, pred_confidence=pred_confidence,
-                         label_0=label_0, label_1=label_1,
-                         label_0_mask=label_0_mask, label_1_mask=label_1_mask)
+                         label_0_sftr=label_0_sftr, label_1_sftr=label_1_sftr,
+                         label_0_cut=label_0_cut, label_1_cut=label_1_cut
+                        )
         else:
             _output = [self.extractor(x) for x in batch]
             output = {}
@@ -88,7 +89,7 @@ def get_classifier_networks(args, accelerator: Accelerator):
     if type(args.CLASSIFIER.optimizer.group) == list and len(args.CLASSIFIER.optimizer.group) > 0:
         params_groups = [dict(x) for x in args.CLASSIFIER.optimizer.group]
         for p in params_groups:
-            p['params'] = getattr(model.model, p['params']).parameters()
+            p['params'] = rgetattr(model.model, p['params']).parameters()
     else:
         params_groups = model.parameters()
 

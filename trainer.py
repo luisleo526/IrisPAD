@@ -25,7 +25,9 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         paths_for_selftraining = None
 
     for _ in tqdm(range(num_epoch), disable=tqdm_no_progress):
+        
         step += 1
+        
         if accelerator.is_main_process:
             for name, weight in accelerator.unwrap_model(nets.classifier.model).model.named_parameters():
                 writer.add_histogram(f"TRAIN_classifier/{name}", weight, step)
@@ -99,10 +101,10 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         for batch in loader.dl:
                             with torch.no_grad():
                                 outputs = nets.classifier.model(batch)
-                                label_0 = accelerator.pad_across_processes(outputs.label_0_mask,
+                                label_0 = accelerator.pad_across_processes(outputs.label_0_sftr,
                                                                            dim=0, pad_index=pad_token_id,
                                                                            pad_first=False)
-                                label_1 = accelerator.pad_across_processes(outputs.label_1_mask,
+                                label_1 = accelerator.pad_across_processes(outputs.label_1_sftr,
                                                                            dim=0, pad_index=pad_token_id,
                                                                            pad_first=False)
                                 label_0 = accelerator.gather(label_0)
@@ -177,14 +179,15 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                     pr_data[name].truth.append(tgt)
 
                     if loader.config.gan:
-                        label_0 = accelerator.pad_across_processes(outputs.label_0,
+                        label_0 = accelerator.pad_across_processes(outputs.label_0_cut,
                                                                    dim=0, pad_index=pad_token_id,
                                                                    pad_first=False)
-                        label_1 = accelerator.pad_across_processes(outputs.label_1,
+                        label_1 = accelerator.pad_across_processes(outputs.label_1_cut,
                                                                    dim=0, pad_index=pad_token_id,
                                                                    pad_first=False)
-                        label_0 = accelerator.gather(label_0)
-                        label_1 = accelerator.gather(label_1)
+                        
+                        label_0, label_1 = accelerator.gather((label_0, label_1))
+
                         paths_from_test.label_0.extend(label_0[label_0 != pad_token_id].tolist())
                         paths_from_test.label_1.extend(label_1[label_1 != pad_token_id].tolist())
 
@@ -193,12 +196,13 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                 results[key].update({name: value})
                 if key == 'acer':
                     max_acer = max(value, max_acer)
-
-        scheduler = nets.classifier.optimizers.scheduler
-        if "metrics" in list(inspect.signature(scheduler.step).parameters):
-            scheduler.step(metrics=max_acer)
-        else:
-            scheduler.step()
+                    
+        if not warmup:
+            scheduler = nets.classifier.optimizers.scheduler
+            if "metrics" in list(inspect.signature(scheduler.step).parameters):
+                scheduler.step(metrics=max_acer)
+            else:
+                scheduler.step()
 
         if accelerator.is_main_process:
             for key, value in results.items():
@@ -215,69 +219,75 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
             writer.flush()
 
         if use_gan and train_gan:
+            
             # prepare data for gan
-            assert len(paths_from_test.label_0) > 0 and len(paths_from_test.label_1) > 0, \
-                "Imbalance dataset across labels"
             paths_from_test.label_0 = vocab.index2word(paths_from_test.label_0)
             paths_from_test.label_1 = vocab.index2word(paths_from_test.label_1)
-            if iterative:
-                gan_ld1 = make_gan_loader(args, paths_from_train.label_0, paths_from_test.label_0, accelerator)
-                gan_ld2 = make_gan_loader(args, paths_from_train.label_1, paths_from_test.label_1, accelerator)
-                gan_lds = Munch(cut=gan_ld1, cut2=gan_ld2)
-            else:
-                gan_lds = Munch(cut=make_gan_loader(args,
-                                                    paths_from_train.label_0 + paths_from_train.label_1,
-                                                    paths_from_test.label_0 + paths_from_test.label_1,
-                                                    accelerator
-                                                    )
-                                )
+            
+            if iterative and len(paths_from_test.label_0) > 0 and len(paths_from_test.label_1) > 0:
+                
+                if iterative:
+                    gan_ld1 = make_gan_loader(args, paths_from_train.label_0, paths_from_test.label_0, accelerator)
+                    gan_ld2 = make_gan_loader(args, paths_from_train.label_1, paths_from_test.label_1, accelerator)
+                    gan_lds = Munch(cut=gan_ld1, cut2=gan_ld2)
+                else:
+                    gan_lds = Munch(cut=make_gan_loader(args,
+                                                        paths_from_train.label_0 + paths_from_train.label_1,
+                                                        paths_from_test.label_0 + paths_from_test.label_1,
+                                                        accelerator
+                                                        )
+                                    )
+                # train gan
+                cut_labels = dict(cut="Label 0" if iterative else "cut", cut2="Label 1")
+                loss_dict = dict(netD="lossD", netG="lossG", netF="lossF")
+                results = Munch()
+                for name, loader in gan_lds.items():
+                    results.update({name: Munch(lossG=0, lossD=0, lossF=0)})
+                    nets[name].model.train()
+                    for batch in loader:
+                        outputs = nets[name].model(batch)
+                        accelerator.backward(outputs.lossD + outputs.lossG + outputs.lossF)
+                        lossG, lossD, lossF = accelerator.gather((outputs.lossG.detach(),
+                                                                  outputs.lossD.detach(),
+                                                                  outputs.lossF.detach()))
+                        results[name].lossG += lossG.sum().item()
+                        results[name].lossD += lossD.sum().item()
+                        results[name].lossF += lossF.sum().item()
+                        for net in ['netD', 'netG', 'netF']:
+                            nets[name].optimizers[net].optim.step()
+                            nets[name].optimizers[net].optim.zero_grad()
 
-            # train gan
-            cut_labels = dict(cut="Label 0" if iterative else "cut", cut2="Label 1")
-            loss_dict = dict(netD="lossD", netG="lossG", netF="lossF")
-            results = Munch()
-            for name, loader in gan_lds.items():
-                results.update({name: Munch(lossG=0, lossD=0, lossF=0)})
-                nets[name].model.train()
-                for batch in loader:
-                    outputs = nets[name].model(batch)
-                    accelerator.backward(outputs.lossD + outputs.lossG + outputs.lossF)
-                    lossG, lossD, lossF = accelerator.gather((outputs.lossG.detach(),
-                                                              outputs.lossD.detach(),
-                                                              outputs.lossF.detach()))
-                    results[name].lossG += lossG.sum().item()
-                    results[name].lossD += lossD.sum().item()
-                    results[name].lossF += lossF.sum().item()
-                    for net in ['netD', 'netG', 'netF']:
-                        nets[name].optimizers[net].optim.step()
-                        nets[name].optimizers[net].optim.zero_grad()
+                    if not warmup:
+                        for net in ['netD', 'netG', 'netF']:
+                            scheduler = nets[name].optimizers[net].scheduler
+                            if "metrics" in list(inspect.signature(scheduler.step).parameters):
+                                scheduler.step(metrics=results[name][loss_dict[net]])
+                            else:
+                                scheduler.step()
 
-                # for net in ['netD', 'netG', 'netF']:
-                #     scheduler = nets[name].optimizers[net].scheduler
-                #     if "metrics" in list(inspect.signature(scheduler.step).parameters):
-                #         scheduler.step(metrics=results[name][loss_dict[net]])
-                #     else:
-                #         scheduler.step()
+                    if accelerator.is_main_process:
+                        writer.add_images(f"{cut_labels[name]}/RealImages", outputs.real, global_step=step)
+                        writer.add_images(f"{cut_labels[name]}/FakeImages", outputs.fake, global_step=step)
+                        writer.flush()
 
                 if accelerator.is_main_process:
-                    writer.add_images(f"{cut_labels[name]}/RealImages", outputs.real, global_step=step)
-                    writer.add_images(f"{cut_labels[name]}/FakeImages", outputs.fake, global_step=step)
+                    for key, value in results.items():
+                        writer.add_scalars(f"CUT/{cut_labels[key]}_losses", dict(value), global_step=step)
                     writer.flush()
-
-            if accelerator.is_main_process:
-                for key, value in results.items():
-                    writer.add_scalars(f"CUT/{cut_labels[key]}_losses", dict(value), global_step=step)
-                writer.flush()
-                if iterative:
-                    net_list = ['cut', 'cut2']
-                else:
-                    net_list = ['cut']
-                for main_net in net_list:
-                    for net in ['netD', 'netG', 'netF']:
-                        for name, weight in getattr(accelerator.unwrap_model(nets[main_net].model),
-                                                    net).named_parameters():
-                            writer.add_histogram(f"{main_net}_{net}/{name}", weight, step)
-                writer.flush()
+                    if iterative:
+                        net_list = ['cut', 'cut2']
+                    else:
+                        net_list = ['cut']
+                    for main_net in net_list:
+                        for net in ['netD', 'netG', 'netF']:
+                            for name, weight in getattr(accelerator.unwrap_model(nets[main_net].model),
+                                                        net).named_parameters():
+                                writer.add_histogram(f"{main_net}_{net}/{name}", weight, step)
+                    writer.flush()
+            
+            else:
+                
+                accelerator.print("Imblance data configuration, skip CUT training...")
 
     return step, paths_for_selftraining
 
