@@ -48,7 +48,7 @@ class Classifier(nn.Module):
             padding = [torch.tensor(self.pad_token_id, device=batch['image'].device, dtype=torch.int32)]
             pred_label = output.argmax(dim=-1).detach()
             pred_confidence = torch.nn.Softmax(dim=-1)(output).detach()
-            
+
             mask = pred_confidence.max(dim=-1)[0] > self.confidence_CUT
             paths = batch['path'][mask]
             preds = pred_label[mask]
@@ -66,7 +66,7 @@ class Classifier(nn.Module):
             return Munch(loss=loss, pred=pred_label, pred_confidence=pred_confidence,
                          label_0_sftr=label_0_sftr, label_1_sftr=label_1_sftr,
                          label_0_cut=label_0_cut, label_1_cut=label_1_cut
-                        )
+                         )
         else:
             _output = [self.extractor(x) for x in batch]
             output = {}
@@ -105,6 +105,8 @@ def get_classifier_networks(args, accelerator: Accelerator):
     else:
         scheduler_pretrain = None
         optimizer_pretrain = None
+
     model, optimizer, scheduler = accelerator.prepare(model, optimizer, scheduler)
+    
     return model, Munch(optim=optimizer, optim_pretrain=optimizer_pretrain,
                         scheduler=scheduler, scheduler_pretrain=scheduler_pretrain)

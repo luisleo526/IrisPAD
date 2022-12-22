@@ -18,16 +18,15 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         accelerator: Accelerator, writer: Optional[SummaryWriter], nets, loaders, vocab: Vocab,
         use_gan: bool, iterative: bool, warmup: bool, train_gan: bool, tqdm_no_progress: bool, self_training: bool,
         self_training_refresh: bool):
-
     pad_token_id = args.CLASSIFIER.pad_token_id
 
     if self_training_refresh:
         paths_for_selftraining = None
 
     for _ in tqdm(range(num_epoch), disable=tqdm_no_progress):
-        
+
         step += 1
-        
+
         if accelerator.is_main_process:
             for name, weight in accelerator.unwrap_model(nets.classifier.model).model.named_parameters():
                 writer.add_histogram(f"TRAIN_classifier/{name}", weight, step)
@@ -185,7 +184,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         label_1 = accelerator.pad_across_processes(outputs.label_1_cut,
                                                                    dim=0, pad_index=pad_token_id,
                                                                    pad_first=False)
-                        
+
                         label_0, label_1 = accelerator.gather((label_0, label_1))
 
                         paths_from_test.label_0.extend(label_0[label_0 != pad_token_id].tolist())
@@ -196,7 +195,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                 results[key].update({name: value})
                 if key == 'acer':
                     max_acer = max(value, max_acer)
-                    
+
         if not warmup:
             scheduler = nets.classifier.optimizers.scheduler
             if "metrics" in list(inspect.signature(scheduler.step).parameters):
@@ -219,13 +218,14 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
             writer.flush()
 
         if use_gan and train_gan:
-            
+
             # prepare data for gan
             paths_from_test.label_0 = vocab.index2word(paths_from_test.label_0)
             paths_from_test.label_1 = vocab.index2word(paths_from_test.label_1)
-            
-            if iterative and len(paths_from_test.label_0) > 0 and len(paths_from_test.label_1) > 0:
-                
+
+            if iterative and len(paths_from_test.label_0) > accelerator.num_processes and len(
+                    paths_from_test.label_1) > accelerator.num_processes:
+
                 if iterative:
                     gan_ld1 = make_gan_loader(args, paths_from_train.label_0, paths_from_test.label_0, accelerator)
                     gan_ld2 = make_gan_loader(args, paths_from_train.label_1, paths_from_test.label_1, accelerator)
@@ -284,9 +284,9 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                                                         net).named_parameters():
                                 writer.add_histogram(f"{main_net}_{net}/{name}", weight, step)
                     writer.flush()
-            
+
             else:
-                
+
                 accelerator.print("Imblance data configuration, skip CUT training...")
 
     return step, paths_for_selftraining

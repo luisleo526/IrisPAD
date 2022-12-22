@@ -83,11 +83,10 @@ def main(args):
                                         iterative, warmup=False, train_gan=(epoch + 1) % args.CUT.update_freq == 0,
                                         tqdm_no_progress=True, self_training=self_training,
                                         self_training_refresh=epoch % args.CLASSIFIER.refresh_selftraining == 0)
-        
+
         if accelerator.is_main_process:
-            if (epoch+1) in args.GENERAL.milestones:
-                writer.add_text("SummaryTable", nets.tracker.get_table(epoch+1).get_html_string(), global_step=step)
-            
+            if (epoch + 1) in args.GENERAL.milestones:
+                writer.add_text("SummaryTable", nets.tracker.get_table(epoch + 1).get_html_string(), global_step=step)
 
     if accelerator.is_main_process:
         writer.close()
