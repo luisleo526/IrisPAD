@@ -15,6 +15,8 @@ from dataset.datasets import make_data_loader
 from trainer import run, run_pretrain
 import warnings
 
+from utils.tracker import Tracker
+
 warnings.filterwarnings("ignore")
 logger = get_logger(__name__)
 
@@ -55,6 +57,9 @@ def main(args):
             paths_from_train.label_1.extend(data.label_1)
 
     nets = get_all_networks(args, accelerator)
+    nets.update(tracker=Tracker(milestones=args.GENERAL.milestones,
+                                value_names=['acc', 'acer', 'apcer', 'bpcer'],
+                                ds_names=list(paths.test.keys())))
     accelerator.wait_for_everyone()
 
     if args.CLASSIFIER.pretrain.apply:
@@ -94,14 +99,14 @@ def main(args):
 
     if accelerator.is_main_process:
         writer.close()
-        
+
     accelerator.wait_for_everyone()
 
 
 if __name__ == '__main__':
 
     opts = parse_args()
-    
+
     print(f"Loading {opts.yaml} ...")
 
     with open(opts.yaml, "r") as stream:

@@ -4,6 +4,7 @@ GENERAL:
   rgb: False
   resolution: &resolution [ 256, 256 ]
   max_epochs: 300
+  milestones: [10, 150, 300]
   data:
     pretrain:
       - /data/dataset/IrisCSD

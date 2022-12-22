@@ -1,3 +1,4 @@
+import inspect
 from typing import Optional, List
 
 import matplotlib.pyplot as plt
@@ -11,7 +12,7 @@ from tqdm.auto import tqdm
 from dataset.datasets import make_gan_loader, _make_data_loader
 from utils.metrics import ISOMetrics
 from utils.vocab import Vocab
-import inspect
+
 
 def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: int,
         accelerator: Accelerator, writer: Optional[SummaryWriter], nets, loaders, vocab: Vocab,
@@ -186,6 +187,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         paths_from_test.label_1.extend(label_1[label_1 != pad_token_id].tolist())
 
             for key, value in metrics.aggregate().items():
+                nets.tracker(name, key, value)
                 results[key].update({name: value})
                 if key == 'acer':
                     max_acer = max(value, max_acer)
@@ -209,6 +211,8 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                                                  ax=ax, name=name)
             writer.add_figure("ROC/TEST", figure=fig, global_step=step)
             writer.flush()
+
+            writer.add_text("OUTPUT", nets.tracker.get_table(10).get_string())
 
         if use_gan and train_gan:
             # prepare data for gan
