@@ -41,7 +41,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
         # train classifier
         pr_data = Munch()
         for name, loader in loaders.train.items():
-            if (not loader.config.skip and not warmup) or warmup:
+            if not loader.config.skip or warmup:
                 if not loader.config.selftraining:
                     pr_data.update({name: Munch(confid=[], truth=[])})
                     nets.classifier.model.train()
@@ -146,11 +146,20 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
             fig, ax = plt.subplots(dpi=100, figsize=(6, 6))
             ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
             for name, data in pr_data.items():
-                writer.add_pr_curve(f"TRAIN/pr_curve/{name}", labels=torch.cat(data.truth),
-                                    predictions=torch.cat(data.confid), global_step=step)
-                RocCurveDisplay.from_predictions(y_true=torch.cat(data.truth).cpu().numpy(),
-                                                 y_pred=torch.cat(data.confid).cpu().numpy(),
-                                                 ax=ax, name=name)
+                try:
+                    writer.add_pr_curve(f"TRAIN/pr_curve/{name}", labels=torch.cat(data.truth),
+                                        predictions=torch.cat(data.confid), global_step=step)
+                except Exception as e:
+                    accelerator.print(f"Error occur when adding PR Curve for TRAIN-{name}")
+                    accelerator.print(str(e))
+                try:
+                    RocCurveDisplay.from_predictions(y_true=torch.cat(data.truth).cpu().numpy(),
+                                                     y_pred=torch.cat(data.confid).cpu().numpy(),
+                                                     ax=ax, name=name)
+                except Exception as e:
+                    accelerator.print(f"Error occur when adding ROC Curve for TRAIN-{name}")
+                    accelerator.print(str(e))
+                    
             writer.add_figure("ROC/TRAIN", figure=fig, global_step=step)
             writer.flush()
 
@@ -209,11 +218,19 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
             fig, ax = plt.subplots(dpi=100, figsize=(6, 6))
             ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
             for name, data in pr_data.items():
-                writer.add_pr_curve(f"TEST/pr_curve/{name}", labels=torch.cat(data.truth),
-                                    predictions=torch.cat(data.confid), global_step=step)
-                RocCurveDisplay.from_predictions(y_true=torch.cat(data.truth).cpu().numpy(),
-                                                 y_pred=torch.cat(data.confid).cpu().numpy(),
-                                                 ax=ax, name=name)
+                try:
+                    writer.add_pr_curve(f"TEST/pr_curve/{name}", labels=torch.cat(data.truth),
+                                        predictions=torch.cat(data.confid), global_step=step)
+                except Exception as e:
+                    accelerator.print(f"Error occur when adding PR Curve for TEST-{name}")
+                    accelerator.print(str(e))
+                try:
+                    RocCurveDisplay.from_predictions(y_true=torch.cat(data.truth).cpu().numpy(),
+                                                     y_pred=torch.cat(data.confid).cpu().numpy(),
+                                                     ax=ax, name=name)
+                except Exception as e:
+                    accelerator.print(f"Error occur when adding ROC Curve for TEST-{name}")
+                    accelerator.print(str(e))
             writer.add_figure("ROC/TEST", figure=fig, global_step=step)
             writer.flush()
 

@@ -85,8 +85,8 @@ def main(args):
                                         self_training_refresh=epoch % args.CLASSIFIER.refresh_selftraining == 0)
 
         if accelerator.is_main_process:
-            if (epoch + 1) in args.GENERAL.milestones:
-                writer.add_text("SummaryTable", nets.tracker.get_table(epoch + 1).get_html_string(), global_step=step)
+            if epoch % args.GENERAL.milestones == 0:
+                writer.add_text("SummaryTable", nets.tracker.get_table(epoch).get_html_string(), global_step=step)
 
     if accelerator.is_main_process:
         writer.close()

@@ -4,55 +4,55 @@ GENERAL:
   rgb: False
   resolution: &resolution [ 256, 256 ]
   max_epochs: 600
-  milestones: [10, 150, 300]
-  truncate: 10
-  warmup: 60
+  milestones: 10
+  truncate: 20
+  warmup: 40
   data:
     pretrain:
-      - /data/dataset/IrisCSD
-      - /data/dataset/ND_CLD_2015
-      - /data/dataset/ND_Contact_2010
-      - /data/dataset/LivDet2017
+      - /workspace/dataset/IrisCSD
+      - /workspace/dataset/ND_CLD_2015
+      - /workspace/dataset/ND_Contact_2010
+      - /workspace/dataset/LivDet2017
     train:
       SelfTraining:
         config:
           skip: False
           selftraining: True
         paths:
-          # - /data/dataset/LivDet2017/Clarkson/train
-          - /data/dataset/LivDet2017/Clarkson/test
-          - /data/dataset/LivDet2017/IIIT_WVU/train
-          - /data/dataset/LivDet2017/IIIT_WVU/test
-          - /data/dataset/LivDet2017/NotreDame/train
-          - /data/dataset/LivDet2017/NotreDame/test
+          # - /workspace/dataset/LivDet2017/Clarkson/train
+          - /workspace/dataset/LivDet2017/Clarkson/test
+          - /workspace/dataset/LivDet2017/IIIT_WVU/train
+          - /workspace/dataset/LivDet2017/IIIT_WVU/test
+          - /workspace/dataset/LivDet2017/NotreDame/train
+          - /workspace/dataset/LivDet2017/NotreDame/test
       NotreDame:
         config:
           skip: False
           selftraining: False
         paths:
-          - /data/dataset/LivDet2017/NotreDame/train
+          - /workspace/dataset/LivDet2017/NotreDame/train
     test:
       Clarkson:
         config:
           gan: True
         paths:
-          - /data/dataset/LivDet2017/Clarkson/test
+          - /workspace/dataset/LivDet2017/Clarkson/test
       IIIT_WVU:
         config:
           gan: True
         paths:
-          - /data/dataset/LivDet2017/IIIT_WVU/test
+          - /workspace/dataset/LivDet2017/IIIT_WVU/test
       NotreDame:
         config:
           gan: True
         paths:
-          - /data/dataset/LivDet2017/NotreDame/test
+          - /workspace/dataset/LivDet2017/NotreDame/test
 
 CLASSIFIER:
   confidence_selfTraining: 0.9
   confidence_CUT: 0.8
   refresh_selftraining: 10
-  batch_size: 32
+  batch_size: 64
   pad_token_id: -1
   self_training: False
   pretrain:
@@ -105,7 +105,7 @@ CLASSIFIER:
   optimizer:
     type: torch.optim.Adam
     params:
-      lr: 5.0e-3
+      lr: 1.0e-3
       weight_decay: 1.0e-4
     group:
       -
@@ -113,25 +113,25 @@ CLASSIFIER:
         lr: 1.0e-3
       -
         params: classifier
-        lr: 1.0e-4
+        lr: 3.0e-4
         weight_decay: 1.0e-3
   scheduler:
     type: torch.optim.lr_scheduler.ReduceLROnPlateau
     params:
       mode: "min"
       factor: 0.3
-      patience: 20
-      cooldown: 10
+      patience: 15
+      cooldown: 5
       min_lr: 1.0e-10
   net_init:
-    init_type: xavier
+    init_type: normal
     init_gain: 0.02
 
 CUT:
   batch_size: 16
   apply: True
   iterative: True
-  update_freq: 5
+  update_freq: 3
   flip_equivariance: False
   lambda_GAN: 1.0
   lambda_NCE: 0.5
