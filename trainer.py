@@ -85,8 +85,6 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         pr_data[name].confid.append(pred_confidence)
                         pr_data[name].truth.append(tgt)
 
-                    nets.classifier.optimizers.optim.step()
-
                     for key, value in metrics.aggregate().items():
                         results[key].update({name: value})
                 else:

@@ -38,7 +38,7 @@ def main(args):
     iterative = args.CUT.iterative
     self_training = args.CLASSIFIER.self_training
 
-    accelerator = Accelerator()
+    accelerator = Accelerator(step_scheduler_with_optimizer=False)
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
@@ -87,6 +87,12 @@ def main(args):
         if accelerator.is_main_process:
             if epoch % args.GENERAL.milestones == 0:
                 writer.add_text("SummaryTable", nets.tracker.get_table(epoch).get_html_string(), global_step=step)
+    
+    if accelerator.is_main_process:
+        if epoch % args.GENERAL.milestones == 0:
+            last_step = args.GENERAL.max_epochs
+            writer.add_text("SummaryTable", nets.tracker.get_table(last_step, last_step).get_html_string(), global_step=step+1)
+                
 
     if accelerator.is_main_process:
         writer.close()

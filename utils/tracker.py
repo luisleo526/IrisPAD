@@ -14,7 +14,10 @@ class Tracker(object):
         if name in self.targets.keys() and key in self.targets[name].keys():
             self.targets[name][key].append(value)
 
-    def get_table(self, step: int):
+    def get_table(self, step: int, truncate=None):
+        
+        if truncate is None:
+            truncate = self.truncate
 
         tb = PrettyTable()
         tb.title = f"Milestone at {step}"
@@ -23,12 +26,12 @@ class Tracker(object):
             if j != 0:
                 tb.add_row(["-" * x for x in [12, 5] + [15 for _ in range(len(self.value_names))]])
             for i, (reduction, reduction_fn, comment_fn) in enumerate(
-                    [("Mean", lambda x: f"{np.mean(x[-self.truncate:]) * 100:2.2f}",
-                      lambda x: f"{np.std(x[-self.truncate:]) * 100:2.2f}"),
-                     ("Max", lambda x: f"{np.max(x[-self.truncate:]) * 100:2.2f}",
-                      lambda x: f"{int(np.argmax(x[-self.truncate:]))+len(x)-self.truncate:5}"),
-                     ("Min", lambda x: f"{np.min(x[-self.truncate:]) * 100:2.2f}",
-                      lambda x: f"{int(np.argmin(x[-self.truncate:]))+len(x)-self.truncate:5}")]):
+                    [("Mean", lambda x: f"{np.mean(x[-truncate:]) * 100:2.2f}",
+                      lambda x: f"{np.std(x[-truncate:]) * 100:2.2f}"),
+                     ("Max", lambda x: f"{np.max(x[-truncate:]) * 100:2.2f}",
+                      lambda x: f"{int(np.argmax(x[-truncate:]))+len(x)-truncate:5}"),
+                     ("Min", lambda x: f"{np.min(x[-truncate:]) * 100:2.2f}",
+                      lambda x: f"{int(np.argmin(x[-truncate:]))+len(x)-truncate:5}")]):
                 if i == 1:
                     title = key
                 else:
