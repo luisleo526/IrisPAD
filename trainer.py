@@ -157,7 +157,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                 except Exception as e:
                     accelerator.print(f"Error occur when adding ROC Curve for TRAIN-{name}")
                     accelerator.print(str(e))
-                    
+
             writer.add_figure("ROC/TRAIN", figure=fig, global_step=step)
             writer.flush()
 
