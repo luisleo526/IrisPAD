@@ -1,43 +1,62 @@
-from typing import List
+from typing import List, Dict
+
+import numpy as np
 from munch import Munch
 from prettytable import PrettyTable
-import numpy as np
+
+reduction_fns = {'max': lambda x, y: (np.max(x[-y:]), np.argmax(x[-y:]) + len(x) - y),
+                 'min': lambda x, y: (np.min(x[-y:]), np.argmin(x[-y:]) + len(x) - y),
+                 'mean': lambda x, y: (np.mean(x[-y:]), np.std(x[-y:]))}
 
 
 class Tracker(object):
-    def __init__(self, truncate: int, value_names: List[str], ds_names: List[str]):
+    def __init__(self, truncate: int, values: Dict[str, str], ds_names: List[str]):
         self.truncate = truncate
-        self.targets = Munch({key: Munch({_key: [] for _key in value_names}) for key in ds_names})
-        self.value_names = value_names
+        self.data = Munch({key: Munch({_key: [] for _key in values.keys()}) for key in ds_names})
+        self.metrics_name = list(values.keys())
+        self.metric_reduction = values
 
-    def __call__(self, name: str, key: str, value: float):
-        if name in self.targets.keys() and key in self.targets[name].keys():
-            self.targets[name][key].append(value)
+        self.fmt2os = {'max': lambda x, y: "%.4f (%04d)" % reduction_fns['max'](x, y),
+                       'min': lambda x, y: "%.4f (%04d)" % reduction_fns['min'](x, y),
+                       'mean': lambda x, y: "%.4f (%.4f)" % reduction_fns['mean'](x, y)
+                       }
 
-    def get_table(self, step: int, truncate=None):
-        
+        self.fmt1of = {'max': lambda x, y: float("%.4f" % reduction_fns['max'](x, y)[0]),
+                       'min': lambda x, y: float("%.4f" % reduction_fns['min'](x, y)[0]),
+                       'mean': lambda x, y: float("%.4f" % reduction_fns['mean'](x, y)[0])
+                       }
+
+    def __call__(self, ds: str, metric: str, value: float):
+        if ds in self.data.keys() and metric in self.data[ds].keys():
+            self.data[ds][metric].append(value)
+
+    def get_table(self, step: int, truncate: int = None):
+
         if truncate is None:
             truncate = self.truncate
 
         tb = PrettyTable()
         tb.title = f"Milestone at {step}"
-        tb.field_names = ["Dataset", "", ] + self.value_names
-        for j, (key, value) in enumerate(self.targets.items()):
+        tb.field_names = ["Dataset"] + [f"{x} ({y})" for x, y in self.metric_reduction.items()]
+        for j, (ds, data_dict) in enumerate(self.data.items()):
             if j != 0:
-                tb.add_row(["-" * x for x in [12, 5] + [15 for _ in range(len(self.value_names))]])
-            for i, (reduction, reduction_fn, comment_fn) in enumerate(
-                    [("Mean", lambda x: f"{np.mean(x[-truncate:]) * 100:2.2f}",
-                      lambda x: f"{np.std(x[-truncate:]) * 100:2.2f}"),
-                     ("Max", lambda x: f"{np.max(x[-truncate:]) * 100:2.2f}",
-                      lambda x: f"{int(np.argmax(x[-truncate:]))+len(x)-truncate:5}"),
-                     ("Min", lambda x: f"{np.min(x[-truncate:]) * 100:2.2f}",
-                      lambda x: f"{int(np.argmin(x[-truncate:]))+len(x)-truncate:5}")]):
-                if i == 1:
-                    title = key
-                else:
-                    title = ""
-                tb.add_row(
-                    [title, reduction] + [f"{reduction_fn(value[_key])} ({comment_fn(value[_key])})"
-                                          for _key in self.value_names])
-
+                tb.add_row(["-" * x for x in [12] + [15 for _ in range(len(self.metrics_name))]])
+            tb.add_row([ds] + [self.fmt2os[red_name](data_dict[metric], truncate) for metric, red_name in
+                               self.metric_reduction.items()])
         return tb
+
+    def overall_metrics(self, items: List[str] = None, truncate: int = None):
+
+        if items is None:
+            items = ['acer', 'bpcer', 'apcer']
+
+        if truncate is None:
+            truncate = self.truncate
+
+        metrics = {}
+
+        for ds, values in self.data.items():
+            for item in items:
+                metrics[f"hyparam/{ds}/{item}"] = self.fmt1of[self.metric_reduction[item]](values[item], truncate)
+
+        return metrics

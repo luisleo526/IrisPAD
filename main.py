@@ -59,7 +59,7 @@ def main(args):
 
     nets = get_all_networks(args, accelerator)
     nets.update(tracker=Tracker(truncate=args.GENERAL.truncate,
-                                value_names=['acc', 'acer', 'apcer', 'bpcer'],
+                                values=dict(acer='min', apcer='min', bpcer='min', acc='max'),
                                 ds_names=list(paths.test.keys())))
     accelerator.wait_for_everyone()
 
@@ -87,14 +87,18 @@ def main(args):
         if accelerator.is_main_process:
             if epoch % args.GENERAL.milestones == 0:
                 writer.add_text("SummaryTable", nets.tracker.get_table(epoch).get_html_string(), global_step=step)
-    
-    if accelerator.is_main_process:
-        if epoch % args.GENERAL.milestones == 0:
-            last_step = args.GENERAL.max_epochs
-            writer.add_text("SummaryTable", nets.tracker.get_table(last_step, last_step).get_html_string(), global_step=step+1)
-                
 
     if accelerator.is_main_process:
+        last_step = args.GENERAL.max_epochs
+        writer.add_text("SummaryTable", nets.tracker.get_table(last_step, last_step).get_html_string(),
+                        global_step=step + 1)
+        hyper_dict = dict(CUT=use_gan, iterative=iterative,
+                          CUT_lambda_NCE_ratio=args.CUT.lambda_NCE / args.CUT.lambda_GAN,
+                          CUT_update_freq=args.CUT.update_freq,
+                          batch_size=args.CLASSIFIER.batch_size)
+        writer.add_hparams(hparam_dict=hyper_dict,
+                           metric_dict=nets.tracker.overall_metrics(step=args.GENERAL.max_epochs),
+                           run_name=f"{args.GENERAL.name}-{datetime.now().strftime('%m%d-%H%M')}")
         writer.close()
 
     accelerator.wait_for_everyone()
