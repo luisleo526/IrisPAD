@@ -311,13 +311,14 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
                  tqdm_no_progress: bool):
     step = 0
     progress_bar = tqdm(range(num_epoch * len(loaders.pretrain.dl)), disable=tqdm_no_progress)
+    return_nodes = accelerator.unwrap_model(nets.classifier.model).return_nodes
     for _ in range(num_epoch):
 
         nets.classifier.model.train()
         for batch in loaders.pretrain.dl:
 
             results = Munch()
-            for layer_name in nets.classifier.model.return_nodes:
+            for layer_name in return_nodes:
                 results.update({f"{layer_name}": Munch()})
                 for j in range(len(args.CLASSIFIER.pretrain.config.num_crops)):
                     results[f"{layer_name}"].update({f"{j}": 0})
