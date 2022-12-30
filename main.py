@@ -97,7 +97,7 @@ def main(args):
                           CUT_update_freq=args.CUT.update_freq,
                           batch_size=args.CLASSIFIER.batch_size)
         writer.add_hparams(hparam_dict=hyper_dict,
-                           metric_dict=nets.tracker.overall_metrics(step=args.GENERAL.max_epochs),
+                           metric_dict=nets.tracker.overall_metrics(truncate=args.GENERAL.max_epochs),
                            run_name=f"{args.GENERAL.name}-{datetime.now().strftime('%m%d-%H%M')}")
         writer.close()
 
