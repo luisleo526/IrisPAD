@@ -8,6 +8,7 @@ import yaml
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
+from accelerate import DistributedDataParallelKwargs as ddp_kwargs
 from munch import Munch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
@@ -37,7 +38,8 @@ def main(args):
     iterative = args.CUT.iterative
     self_training = args.CLASSIFIER.self_training
 
-    accelerator = Accelerator(step_scheduler_with_optimizer=False)
+    accelerator = Accelerator(step_scheduler_with_optimizer=False,
+                              kwargs_handlers=[ddp_kwargs(find_unused_parameters=True)])
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
