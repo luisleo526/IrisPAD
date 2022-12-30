@@ -1,5 +1,7 @@
 import logging
+import warnings
 from argparse import ArgumentParser
+from datetime import datetime
 
 import torch
 import yaml
@@ -10,12 +12,9 @@ from munch import Munch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
-from model.create_networks import get_all_networks
 from dataset.datasets import make_data_loader
+from model.create_networks import get_all_networks
 from trainer import run, run_pretrain
-import warnings
-from datetime import datetime
-
 from utils.tracker import Tracker
 
 warnings.filterwarnings("ignore")
