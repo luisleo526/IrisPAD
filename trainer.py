@@ -341,7 +341,7 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
                     writer.add_scalars(f"PRETRAIN/{key}", dict(value), global_step=step)
                 writer.flush()
                 if step % 10 == 0:
-                    for name, weight in nets.classifier.model.model.named_parameters():
+                    for name, weight in accelerator.unwrap_model(nets.classifier.model).model.named_parameters():
                         writer.add_histogram(f"PRETRAIN_classifier/{name}", weight, step)
                     writer.flush()
                 step += 1
