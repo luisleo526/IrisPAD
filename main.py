@@ -1,5 +1,6 @@
 import logging
 import warnings
+import socket
 from argparse import ArgumentParser
 from datetime import datetime
 
@@ -49,7 +50,7 @@ def main(args):
     )
     logger.info(accelerator.state, main_process_only=False)
     if accelerator.is_main_process:
-        name = f"{args.GENERAL.name}/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        name = f"{socket.gethostname()}-{args.GENERAL.name}/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         logdir = f"./log/{name}"
         wandb.tensorboard.patch(root_logdir=logdir)
         wandb.init(project="Iris-PAD", entity="luisleo", name=name, sync_tensorboard=True,
