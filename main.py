@@ -43,6 +43,10 @@ def main(args):
 
     accelerator = Accelerator(step_scheduler_with_optimizer=False,
                               kwargs_handlers=[ddp_kwargs(find_unused_parameters=True)])
+    
+    args.CLASSIFIER.equiv_batch_size = args.CLASSIFIER.batch_size * accelerator.num_processes
+    args.CUT.equiv_batch_size = args.CUT.batch_size * accelerator.num_processes
+
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
