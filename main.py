@@ -54,7 +54,7 @@ def main(args):
         logdir = f"./log/{name}"
         wandb.tensorboard.patch(root_logdir=logdir)
         wandb.init(project="Iris-PAD", entity="luisleo", name=name, sync_tensorboard=True,
-                   config=get_hypers_config(args))
+                   config=args)
         writer = SummaryWriter(log_dir=logdir)
     else:
         writer = None
