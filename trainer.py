@@ -1,23 +1,20 @@
 import inspect
-from typing import Optional, List
+from typing import List
 
-import matplotlib.pyplot as plt
 import torch
 from accelerate import Accelerator
 from munch import Munch
-from sklearn.metrics import RocCurveDisplay
-from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
+import wandb
 from dataset.datasets import make_gan_loader, _make_data_loader
 from utils.metrics import ISOMetrics
 from utils.vocab import Vocab
 
 
-def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: int,
-        accelerator: Accelerator, writer: Optional[SummaryWriter], nets, loaders, vocab: Vocab,
-        use_gan: bool, iterative: bool, warmup: bool, train_gan: bool, tqdm_no_progress: bool, self_training: bool,
-        self_training_refresh: bool):
+def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: int, accelerator: Accelerator, nets,
+        loaders, vocab: Vocab, use_gan: bool, iterative: bool, warmup: bool, train_gan: bool, tqdm_no_progress: bool,
+        self_training: bool, self_training_refresh: bool):
     pad_token_id = args.CLASSIFIER.pad_token_id
 
     if self_training_refresh:
@@ -26,17 +23,8 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
     for _ in tqdm(range(num_epoch), disable=tqdm_no_progress):
 
         step += 1
-
-        if accelerator.is_main_process:
-            for name, weight in accelerator.unwrap_model(nets.classifier.model).model.named_parameters():
-                writer.add_histogram(f"TRAIN_classifier/{name}", weight, step, max_bins=512)
-            writer.flush()
-
         metrics = ISOMetrics()
-
-        results = Munch()
-        for key in metrics.aggregate().keys():
-            results.update({key: Munch()})
+        results = {}
 
         # train classifier
         pr_data = Munch()
@@ -67,26 +55,28 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                                     new_images = accelerator.unwrap_model(nets.cut.model).a2b(batch['image'])
                                     new_labels = batch['labels']
                                     new_paths = batch['path']
-                            batch["image"] = torch.cat([batch["image"], new_images])
-                            batch["label"] = torch.cat([batch["label"], new_labels])
-                            batch["path"] = torch.cat([batch["path"], new_paths])
+                            new_batch = dict(image=new_images, label=new_labels, path=new_paths)
+                        else:
+                            new_batch = None
 
-                        outputs = nets.classifier.model(batch)
-                        accelerator.backward(outputs.loss)
-                        nets.classifier.optimizers.optim.step()
-                        nets.classifier.optimizers.optim.zero_grad()
+                        for data in [batch, new_batch]:
+                            if data is not None:
+                                outputs = nets.classifier.model(data)
+                                accelerator.backward(outputs.loss)
+                                nets.classifier.optimizers.optim.step()
+                                nets.classifier.optimizers.optim.zero_grad()
 
-                        pred, tgt, loss = accelerator.gather_for_metrics(
-                            (outputs.pred, batch['label'], outputs.loss.detach()))
-                        metrics(pred, tgt, loss)
+                                pred, tgt, loss = accelerator.gather_for_metrics(
+                                    (outputs.pred, data['label'], outputs.loss.detach()))
+                                metrics(pred, tgt, loss)
 
-                        # PR curve data
-                        pred_confidence = accelerator.gather_for_metrics(outputs.pred_confidence.contiguous())
-                        pr_data[name].confid.append(pred_confidence)
-                        pr_data[name].truth.append(tgt)
+                                # PR curve data
+                                pred_confidence = accelerator.gather_for_metrics(outputs.pred_confidence.contiguous())
+                                pr_data[name].confid.append(pred_confidence)
+                                pr_data[name].truth.append(tgt)
 
                     for key, value in metrics.aggregate().items():
-                        results[key].update({name: value})
+                        results[f"{key}/{name}/TRAIN"] = value
                 else:
                     if self_training:
                         if paths_for_selftraining is None:
@@ -137,39 +127,12 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                                 pr_data[name].truth.append(tgt)
 
                             for key, value in metrics.aggregate().items():
-                                results[key].update({name: value})
+                                results[f"{key}/{name}/TRAIN"] = value
                         else:
                             accelerator.print("Model not confident enough for self training...")
 
-        if accelerator.is_main_process:
-            for key, value in results.items():
-                writer.add_scalars(f"TRAIN/{key}", dict(value), global_step=step)
-            fig, ax = plt.subplots(dpi=100, figsize=(6, 6))
-            ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
-            for name, data in pr_data.items():
-                try:
-                    writer.add_pr_curve(f"TRAIN/pr_curve/{name}", labels=torch.cat(data.truth),
-                                        predictions=torch.cat(data.confid), global_step=step)
-                except Exception as e:
-                    accelerator.print(f"Error occur when adding PR Curve for TRAIN-{name}")
-                    accelerator.print(str(e))
-                try:
-                    RocCurveDisplay.from_predictions(y_true=torch.cat(data.truth).cpu().numpy(),
-                                                     y_pred=torch.cat(data.confid).cpu().numpy(),
-                                                     ax=ax, name=name)
-                except Exception as e:
-                    accelerator.print(f"Error occur when adding ROC Curve for TRAIN-{name}")
-                    accelerator.print(str(e))
-
-            writer.add_figure("ROC/TRAIN", figure=fig, global_step=step)
-            writer.flush()
-
-        results = Munch()
-        for key in metrics.aggregate().keys():
-            results.update({key: Munch()})
-
         # test classifier
-        max_acer = 0
+        acer_list = {}
         paths_from_test = Munch(label_0=[], label_1=[])
         pr_data = Munch()
         for name, loader in loaders.test.items():
@@ -201,39 +164,18 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         paths_from_test.label_1.extend(label_1[label_1 != pad_token_id].tolist())
 
             for key, value in metrics.aggregate().items():
-                nets.tracker(name, key, value)
-                results[key].update({name: value})
+                results[f"{key}/{name}/TEST"] = value
                 if key == 'acer':
-                    max_acer = max(value, max_acer)
+                    acer_list[name] = value
+
+        results["Overall-Score"] = sum([2 ** i * x for i, x in enumerate(sorted(list(acer_list.values())))])
 
         if not warmup:
             scheduler = nets.classifier.optimizers.scheduler
             if "metrics" in list(inspect.signature(scheduler.step).parameters):
-                scheduler.step(metrics=max_acer)
+                scheduler.step(metrics=results["Overall-Score"])
             else:
                 scheduler.step()
-
-        if accelerator.is_main_process:
-            for key, value in results.items():
-                writer.add_scalars(f"TEST/{key}", dict(value), global_step=step)
-            fig, ax = plt.subplots(dpi=100, figsize=(6, 6))
-            ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
-            for name, data in pr_data.items():
-                try:
-                    writer.add_pr_curve(f"TEST/pr_curve/{name}", labels=torch.cat(data.truth),
-                                        predictions=torch.cat(data.confid), global_step=step)
-                except Exception as e:
-                    accelerator.print(f"Error occur when adding PR Curve for TEST-{name}")
-                    accelerator.print(str(e))
-                try:
-                    RocCurveDisplay.from_predictions(y_true=torch.cat(data.truth).cpu().numpy(),
-                                                     y_pred=torch.cat(data.confid).cpu().numpy(),
-                                                     ax=ax, name=name)
-                except Exception as e:
-                    accelerator.print(f"Error occur when adding ROC Curve for TEST-{name}")
-                    accelerator.print(str(e))
-            writer.add_figure("ROC/TEST", figure=fig, global_step=step)
-            writer.flush()
 
         if use_gan and train_gan:
 
@@ -256,11 +198,12 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                                                         )
                                     )
                 # train gan
-                cut_labels = dict(cut="Label 0" if iterative else "cut", cut2="Label 1")
+                cut_labels = dict(cut="Attack" if iterative else "cut", cut2="Bona fide")
                 loss_dict = dict(netD="lossD", netG="lossG", netF="lossF")
-                results = Munch()
                 for name, loader in gan_lds.items():
-                    results.update({name: Munch(lossG=0, lossD=0, lossF=0)})
+                    results[f"CUT/{cut_labels[name]}/lossG"] = 0
+                    results[f"CUT/{cut_labels[name]}/lossD"] = 0
+                    results[f"CUT/{cut_labels[name]}/lossF"] = 0
                     nets[name].model.train()
                     for batch in loader:
                         outputs = nets[name].model(batch)
@@ -268,9 +211,9 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         lossG, lossD, lossF = accelerator.gather((outputs.lossG.detach(),
                                                                   outputs.lossD.detach(),
                                                                   outputs.lossF.detach()))
-                        results[name].lossG += lossG.sum().item()
-                        results[name].lossD += lossD.sum().item()
-                        results[name].lossF += lossF.sum().item()
+                        results[f"CUT/{cut_labels[name]}/lossG"] += lossG.sum().item()
+                        results[f"CUT/{cut_labels[name]}/lossD"] += lossD.sum().item()
+                        results[f"CUT/{cut_labels[name]}/lossF"] += lossF.sum().item()
                         for net in ['netD', 'netG', 'netF']:
                             nets[name].optimizers[net].optim.step()
                             nets[name].optimizers[net].optim.zero_grad()
@@ -284,34 +227,24 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                                 scheduler.step()
 
                     if accelerator.is_main_process:
-                        writer.add_images(f"{cut_labels[name]}/RealImages", outputs.real, global_step=step)
-                        writer.add_images(f"{cut_labels[name]}/FakeImages", outputs.fake, global_step=step)
-                        writer.flush()
-
-                if accelerator.is_main_process:
-                    for key, value in results.items():
-                        writer.add_scalars(f"CUT/{cut_labels[key]}_losses", dict(value), global_step=step)
-                    writer.flush()
-                    if iterative:
-                        net_list = ['cut', 'cut2']
-                    else:
-                        net_list = ['cut']
-                    for main_net in net_list:
-                        for net in ['netD', 'netG', 'netF']:
-                            for name, weight in getattr(accelerator.unwrap_model(nets[main_net].model),
-                                                        net).named_parameters():
-                                writer.add_histogram(f"{main_net}_{net}/{name}", weight, step, max_bins=512)
-                    writer.flush()
-
+                        table = wandb.Table(columns=["Real-Image", "Fake-Image"], allow_mixed_types=True)
+                        table.add_data([wandb.Image(x) for x in outputs.realPIL],
+                                       [wandb.Image(x) for x in outputs.fakePIL])
+                        results[f"CUT/Samples/{cut_labels[name]}"] = table
             else:
-
                 accelerator.print("Imblance data configuration, skip CUT training...")
+
+        if accelerator.is_main_process:
+            wandb.log(results)
 
     return step, paths_for_selftraining
 
 
-def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryWriter, num_epoch: int,
-                 tqdm_no_progress: bool):
+def run_pretrain(args, loaders, nets, accelerator: Accelerator, num_epoch: int, tqdm_no_progress: bool):
+    if accelerator.is_main_process:
+        wandb.define_metric("pretrain_step")
+        wandb.define_metric("SimCLR-loss", step_metric="pretrain_step")
+
     step = 0
     progress_bar = tqdm(range(num_epoch * len(loaders.pretrain.dl)), disable=tqdm_no_progress)
     return_nodes = accelerator.unwrap_model(nets.classifier.model).return_nodes
@@ -320,7 +253,7 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
         nets.classifier.model.train()
         for batch in loaders.pretrain.dl:
 
-            results = Munch()
+            results = {'SimCLR-loss': 0}
             for layer_name in return_nodes:
                 results.update({f"{layer_name}": Munch()})
                 for j in range(len(args.CLASSIFIER.pretrain.config.num_crops)):
@@ -332,7 +265,7 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
                 for i, loss in enumerate(loss_list):
                     loss_sum += loss
                     loss = accelerator.gather_for_metrics(loss.detach())
-                    results[name][f"{i}"] += loss.sum().item()
+                    results['SimCLR-loss'] += loss.sum().item()
 
             accelerator.backward(loss_sum)
             nets.classifier.optimizers.optim_pretrain.step()
@@ -340,14 +273,9 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
             nets.classifier.optimizers.scheduler_pretrain.step()
 
             if accelerator.is_main_process:
-                for key, value in results.items():
-                    writer.add_scalars(f"PRETRAIN/{key}", dict(value), global_step=step)
-                writer.flush()
-                if step % 10 == 0:
-                    for name, weight in accelerator.unwrap_model(nets.classifier.model).model.named_parameters():
-                        writer.add_histogram(f"PRETRAIN_classifier/{name}", weight, step, max_bins=512)
-                    writer.flush()
-                step += 1
+                step = step + 1
+                results['pretrain_step'] = step
+                wandb.log(results)
 
             accelerator.wait_for_everyone()
 

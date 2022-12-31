@@ -9,6 +9,7 @@ from .netD import NLayerDiscriminator
 from .netF import PatchSampleF
 from .netG import ResnetGenerator
 from utils.utils import get_class, init_net
+from torchvision.transforms import ToPILImage
 
 
 def set_requires_grad(nets, requires_grad=False):
@@ -81,7 +82,10 @@ class CUT(nn.Module):
 
         loss_D = self.netD_loss()
         loss_G, loss_F = self.netGF_loss()
-        output = Munch(lossG=loss_G, lossF=loss_F, lossD=loss_D, real=real_img, fake=fake_img)
+        output = Munch(lossG=loss_G, lossF=loss_F, lossD=loss_D,
+                       real=real_img, fake=fake_img,
+                       realPIL=[ToPILImage()(x) for x in real_img],
+                       fakePIL=[ToPILImage()(x) for x in fake_img])
 
         return output
 

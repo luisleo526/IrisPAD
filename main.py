@@ -1,25 +1,22 @@
 import logging
-import warnings
 import socket
+import warnings
 from argparse import ArgumentParser
 from datetime import datetime
 
 import torch
-import wandb
 import yaml
 from accelerate import Accelerator
 from accelerate import DistributedDataParallelKwargs as ddp_kwargs
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
 from munch import Munch
-from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
+import wandb
 from dataset.datasets import make_data_loader
 from model.create_networks import get_all_networks
 from trainer import run, run_pretrain
-from utils.tracker import Tracker
-from utils.utils import get_hypers_config
 
 warnings.filterwarnings("ignore")
 logger = get_logger(__name__)
@@ -42,8 +39,8 @@ def main(args):
     self_training = args.CLASSIFIER.self_training
 
     accelerator = Accelerator(step_scheduler_with_optimizer=False,
-                              kwargs_handlers=[ddp_kwargs(find_unused_parameters=True)])
-    
+                              kwargs_handlers=[ddp_kwargs(find_unused_parameters=args.CLASSIFIER.pretrain.apply)])
+
     args.CLASSIFIER.equiv_batch_size = args.CLASSIFIER.batch_size * accelerator.num_processes
     args.CUT.equiv_batch_size = args.CUT.batch_size * accelerator.num_processes
 
@@ -59,9 +56,9 @@ def main(args):
         wandb.tensorboard.patch(root_logdir=logdir)
         wandb.init(project="Iris-PAD", entity="luisleo", name=name, sync_tensorboard=True,
                    config=args)
-        writer = SummaryWriter(log_dir=logdir)
-    else:
-        writer = None
+        wandb.define_metric("acer/*", summary="min")
+        wandb.define_metric("acc/*", summary="max")
+        wandb.define_metric("*loss*", summary="min")
 
     loaders, paths, vocab = make_data_loader(args, accelerator)
     paths_from_train = Munch(label_0=[], label_1=[])
@@ -71,44 +68,33 @@ def main(args):
             paths_from_train.label_1.extend(data.label_1)
 
     nets = get_all_networks(args, accelerator)
-    nets.update(tracker=Tracker(truncate=args.GENERAL.truncate,
-                                values=dict(acer='min', apcer='min', bpcer='min', acc='max'),
-                                ds_names=list(paths.test.keys())))
+    if accelerator.is_main_process:
+        wandb.watch(models=nets.classifier.model, idx=0, log='all', log_freq=100)
+        if use_gan:
+            wandb.watch(models=nets.cut.model, idx=1, log='all', log_freq=100)
+            if iterative:
+                wandb.watch(models=nets.cut2.model, idx=2, log='all', log_freq=100)
     accelerator.wait_for_everyone()
 
     if args.CLASSIFIER.pretrain.apply:
         logger.info(" *** Start pretrain classifier *** ")
-        run_pretrain(args, loaders, nets, accelerator, writer,
-                     num_epoch=args.CLASSIFIER.pretrain.epochs, tqdm_no_progress=not accelerator.is_local_main_process)
+        run_pretrain(args, loaders, nets, accelerator, num_epoch=args.CLASSIFIER.pretrain.epochs,
+                     tqdm_no_progress=not accelerator.is_local_main_process)
 
     logger.info(" *** Start warmup *** ")
-    step, paths_for_selftrain = run(args, paths_from_train, None, args.GENERAL.warmup, -1, accelerator,
-                                    writer, nets,
-                                    loaders, vocab, use_gan,
-                                    iterative, warmup=True, train_gan=True,
-                                    tqdm_no_progress=not accelerator.is_local_main_process,
-                                    self_training=self_training, self_training_refresh=False)
+    step, paths_for_selftrain = run(args, paths_from_train, None, args.GENERAL.warmup, -1, accelerator, nets, loaders,
+                                    vocab, use_gan, iterative, warmup=True, train_gan=True,
+                                    tqdm_no_progress=not accelerator.is_local_main_process, self_training=self_training,
+                                    self_training_refresh=False)
 
     logger.info(" *** Start training *** ")
     for epoch in tqdm(range(args.GENERAL.max_epochs), disable=not accelerator.is_local_main_process):
-        step, paths_for_selftrain = run(args, paths_from_train, paths_for_selftrain, 1, step, accelerator, writer, nets,
-                                        loaders, vocab, use_gan,
-                                        iterative, warmup=False, train_gan=(epoch + 1) % args.CUT.update_freq == 0,
-                                        tqdm_no_progress=True, self_training=self_training,
+        step, paths_for_selftrain = run(args, paths_from_train, paths_for_selftrain, 1, step, accelerator, nets,
+                                        loaders, vocab, use_gan, iterative, warmup=False,
+                                        train_gan=(epoch + 1) % args.CUT.update_freq == 0, tqdm_no_progress=True,
+                                        self_training=self_training,
                                         self_training_refresh=epoch % args.CLASSIFIER.refresh_selftraining == 0)
-
-        if accelerator.is_main_process:
-            if epoch % args.GENERAL.milestones == 0:
-                writer.add_text("SummaryTable", nets.tracker.get_table(epoch).get_html_string(), global_step=step)
-
     if accelerator.is_main_process:
-        last_step = args.GENERAL.max_epochs
-        writer.add_text("SummaryTable", nets.tracker.get_table(last_step, last_step).get_html_string(),
-                        global_step=step + 1)
-        writer.add_hparams(hparam_dict=get_hypers_config(args),
-                           metric_dict=nets.tracker.overall_metrics(truncate=args.GENERAL.max_epochs),
-                           run_name=f"{args.GENERAL.name}-{datetime.now().strftime('%m%d-%H%M')}")
-        writer.close()
         wandb.finish()
 
     accelerator.wait_for_everyone()
