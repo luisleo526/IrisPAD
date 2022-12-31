@@ -52,10 +52,7 @@ def main(args):
     logger.info(accelerator.state, main_process_only=False)
     if accelerator.is_main_process:
         name = f"{socket.gethostname()}-{args.GENERAL.name}/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-        logdir = f"./log/{name}"
-        wandb.tensorboard.patch(root_logdir=logdir)
-        wandb.init(project="Iris-PAD", entity="luisleo", name=name, sync_tensorboard=True,
-                   config=args)
+        wandb.init(project="Iris-PAD", entity="luisleo", name=name, config=args)
         wandb.define_metric("acer/*", summary="min")
         wandb.define_metric("acc/*", summary="max")
         wandb.define_metric("loss/*", summary="min")
