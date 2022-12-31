@@ -51,7 +51,7 @@ CLASSIFIER:
   refresh_selftraining: 10
   batch_size: 32
   pad_token_id: -1
-  self_training: True
+  self_training: False
   pretrain:
     batch_size: 8
     apply: False
@@ -126,9 +126,9 @@ CLASSIFIER:
 
 CUT:
   batch_size: 16
-  apply: False
+  apply: True
   iterative: True
-  update_freq: 3
+  update_freq: 5
   flip_equivariance: False
   lambda_GAN: 1.0
   lambda_NCE: 1.0
