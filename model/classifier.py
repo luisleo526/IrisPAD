@@ -3,12 +3,12 @@ import torch
 import torch.nn as nn
 from accelerate import Accelerator
 from munch import Munch
+from torch.nn import SyncBatchNorm
 from torchvision.models.feature_extraction import create_feature_extractor
 
 from dataset.multicropdataset import get_pseudo_label
 from model.supconloss import SupConLoss
 from utils.utils import get_class, rsetattr, init_net, rgetattr
-from torch.nn import SyncBatchNorm
 
 
 class Classifier(nn.Module):
@@ -107,6 +107,6 @@ def get_classifier_networks(args, accelerator: Accelerator):
         optimizer_pretrain = None
 
     model, optimizer, scheduler = accelerator.prepare(model, optimizer, scheduler)
-    
+
     return model, Munch(optim=optimizer, optim_pretrain=optimizer_pretrain,
                         scheduler=scheduler, scheduler_pretrain=scheduler_pretrain)

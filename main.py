@@ -4,11 +4,12 @@ from argparse import ArgumentParser
 from datetime import datetime
 
 import torch
+import wandb
 import yaml
 from accelerate import Accelerator
+from accelerate import DistributedDataParallelKwargs as ddp_kwargs
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
-from accelerate import DistributedDataParallelKwargs as ddp_kwargs
 from munch import Munch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
@@ -17,6 +18,7 @@ from dataset.datasets import make_data_loader
 from model.create_networks import get_all_networks
 from trainer import run, run_pretrain
 from utils.tracker import Tracker
+from utils.utils import get_hypers_config
 
 warnings.filterwarnings("ignore")
 logger = get_logger(__name__)
@@ -47,7 +49,12 @@ def main(args):
     )
     logger.info(accelerator.state, main_process_only=False)
     if accelerator.is_main_process:
-        writer = SummaryWriter(f"./log/{args.GENERAL.name}/{datetime.now().strftime('%Y%m%d-%H%M%S')}")
+        name = f"{args.GENERAL.name}/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        logdir = f"./log/{name}"
+        wandb.tensorboard.patch(root_logdir=logdir)
+        wandb.init(project="Iris-PAD", entity="luisleo", name=name, sync_tensorboard=True)
+        wandb.config = get_hypers_config(args)
+        writer = SummaryWriter(log_dir=logdir)
     else:
         writer = None
 
@@ -93,14 +100,11 @@ def main(args):
         last_step = args.GENERAL.max_epochs
         writer.add_text("SummaryTable", nets.tracker.get_table(last_step, last_step).get_html_string(),
                         global_step=step + 1)
-        hyper_dict = dict(CUT=use_gan, iterative=iterative,
-                          CUT_lambda_NCE_ratio=args.CUT.lambda_NCE / args.CUT.lambda_GAN,
-                          CUT_update_freq=args.CUT.update_freq,
-                          batch_size=args.CLASSIFIER.batch_size)
-        writer.add_hparams(hparam_dict=hyper_dict,
+        writer.add_hparams(hparam_dict=get_hypers_config(args),
                            metric_dict=nets.tracker.overall_metrics(truncate=args.GENERAL.max_epochs),
                            run_name=f"{args.GENERAL.name}-{datetime.now().strftime('%m%d-%H%M')}")
         writer.close()
+        wandb.finish()
 
     accelerator.wait_for_everyone()
 

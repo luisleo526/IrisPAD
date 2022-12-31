@@ -9,44 +9,41 @@ GENERAL:
   warmup: 60
   data:
     pretrain:
-      - /workspace/dataset/IrisCSD
-      - /workspace/dataset/ND_CLD_2015
-      - /workspace/dataset/ND_Contact_2010
-      - /workspace/dataset/LivDet2017
+      - /data/dataset/LivDet2017
     train:
       SelfTraining:
         config:
           skip: False
           selftraining: True
         paths:
-          # - /workspace/dataset/LivDet2017/Clarkson/train
-          - /workspace/dataset/LivDet2017/Clarkson/test
-          - /workspace/dataset/LivDet2017/IIIT_WVU/train
-          - /workspace/dataset/LivDet2017/IIIT_WVU/test
-          - /workspace/dataset/LivDet2017/NotreDame/train
-          - /workspace/dataset/LivDet2017/NotreDame/test
+          # - /data/dataset/LivDet2017/Clarkson/train
+          - /data/dataset/LivDet2017/Clarkson/test
+          - /data/dataset/LivDet2017/IIIT_WVU/train
+          - /data/dataset/LivDet2017/IIIT_WVU/test
+          - /data/dataset/LivDet2017/NotreDame/train
+          - /data/dataset/LivDet2017/NotreDame/test
       NotreDame:
         config:
           skip: False
           selftraining: False
         paths:
-          - /workspace/dataset/LivDet2017/NotreDame/train
+          - /data/dataset/LivDet2017/NotreDame/train
     test:
       Clarkson:
         config:
           gan: True
         paths:
-          - /workspace/dataset/LivDet2017/Clarkson/test
+          - /data/dataset/LivDet2017/Clarkson/test
       IIIT_WVU:
         config:
           gan: True
         paths:
-          - /workspace/dataset/LivDet2017/IIIT_WVU/test
+          - /data/dataset/LivDet2017/IIIT_WVU/test
       NotreDame:
         config:
           gan: True
         paths:
-          - /workspace/dataset/LivDet2017/NotreDame/test
+          - /data/dataset/LivDet2017/NotreDame/test
 
 CLASSIFIER:
   confidence_selfTraining: 0.9
@@ -54,7 +51,7 @@ CLASSIFIER:
   refresh_selftraining: 10
   batch_size: 32
   pad_token_id: -1
-  self_training: False
+  self_training: True
   pretrain:
     batch_size: 8
     apply: False
@@ -71,7 +68,7 @@ CLASSIFIER:
     optimizer:
       type: torch.optim.Adam
       params:
-        lr: 1.0e-2
+        lr: 1.0e-3
     scheduler:
       type: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
       params:
@@ -129,7 +126,7 @@ CLASSIFIER:
 
 CUT:
   batch_size: 16
-  apply: True
+  apply: False
   iterative: True
   update_freq: 3
   flip_equivariance: False

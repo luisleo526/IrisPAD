@@ -29,7 +29,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 
         if accelerator.is_main_process:
             for name, weight in accelerator.unwrap_model(nets.classifier.model).model.named_parameters():
-                writer.add_histogram(f"TRAIN_classifier/{name}", weight, step)
+                writer.add_histogram(f"TRAIN_classifier/{name}", weight, step, max_bins=512)
             writer.flush()
 
         metrics = ISOMetrics()
@@ -89,7 +89,6 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         results[key].update({name: value})
                 else:
                     if self_training:
-                        pr_data.update({name: Munch(confid=[], truth=[])})
                         if paths_for_selftraining is None:
                             paths_for_selftraining = Munch(label_0=[], label_1=[])
 
@@ -118,25 +117,29 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         label_0: List[str] = vocab.index2word(list(set(paths_for_selftraining.label_0)))
                         label_1: List[str] = vocab.index2word(list(set(paths_for_selftraining.label_1)))
                         nets.classifier.model.train()
-                        for batch in _make_data_loader(args,
-                                                       accelerator, vocab, label_0=label_0, label_1=label_1,
-                                                       use_augmentation=True):
-                            outputs = nets.classifier.model(batch)
-                            accelerator.backward(outputs.loss)
-                            nets.classifier.optimizers.optim.step()
-                            nets.classifier.optimizers.optim.zero_grad()
+                        if len(label_0) + len(label_1) > accelerator.num_processes:
+                            pr_data.update({name: Munch(confid=[], truth=[])})
+                            for batch in _make_data_loader(args,
+                                                           accelerator, vocab, label_0=label_0, label_1=label_1,
+                                                           use_augmentation=True):
+                                outputs = nets.classifier.model(batch)
+                                accelerator.backward(outputs.loss)
+                                nets.classifier.optimizers.optim.step()
+                                nets.classifier.optimizers.optim.zero_grad()
 
-                            pred, tgt, loss = accelerator.gather_for_metrics(
-                                (outputs.pred, batch['label'], outputs.loss.detach()))
-                            metrics(pred, tgt, loss)
+                                pred, tgt, loss = accelerator.gather_for_metrics(
+                                    (outputs.pred, batch['label'], outputs.loss.detach()))
+                                metrics(pred, tgt, loss)
 
-                            # PR curve data
-                            pred_confidence = accelerator.gather_for_metrics(outputs.pred_confidence.contiguous())
-                            pr_data[name].confid.append(pred_confidence)
-                            pr_data[name].truth.append(tgt)
+                                # PR curve data
+                                pred_confidence = accelerator.gather_for_metrics(outputs.pred_confidence.contiguous())
+                                pr_data[name].confid.append(pred_confidence)
+                                pr_data[name].truth.append(tgt)
 
-                        for key, value in metrics.aggregate().items():
-                            results[key].update({name: value})
+                            for key, value in metrics.aggregate().items():
+                                results[key].update({name: value})
+                        else:
+                            accelerator.print("Model not confident enough for self training...")
 
         if accelerator.is_main_process:
             for key, value in results.items():
@@ -297,7 +300,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         for net in ['netD', 'netG', 'netF']:
                             for name, weight in getattr(accelerator.unwrap_model(nets[main_net].model),
                                                         net).named_parameters():
-                                writer.add_histogram(f"{main_net}_{net}/{name}", weight, step)
+                                writer.add_histogram(f"{main_net}_{net}/{name}", weight, step, max_bins=512)
                     writer.flush()
 
             else:
@@ -342,7 +345,7 @@ def run_pretrain(args, loaders, nets, accelerator: Accelerator, writer: SummaryW
                 writer.flush()
                 if step % 10 == 0:
                     for name, weight in accelerator.unwrap_model(nets.classifier.model).model.named_parameters():
-                        writer.add_histogram(f"PRETRAIN_classifier/{name}", weight, step)
+                        writer.add_histogram(f"PRETRAIN_classifier/{name}", weight, step, max_bins=512)
                     writer.flush()
                 step += 1
 

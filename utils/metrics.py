@@ -1,5 +1,5 @@
-from munch import Munch
 import torch
+from munch import Munch
 
 
 class ISOMetrics:

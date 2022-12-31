@@ -17,19 +17,15 @@ def rsetattr(obj, attr, val):
 
 
 def get_hypers_config(args):
-    hypers = {}
-    # hypers['batch_size'] = args.GENERAL.batch_size
-    hypers['lambda_GAN'] = args.CUT.lambda_GAN
-    hypers['lambda_NCE'] = args.CUT.lambda_NCE
-    hypers['nce_idt'] = args.CUT.nce_idt
-    hypers['gan_mode'] = args.CUT.mode
-    hypers['netG_nc'] = args.CUT.netG.params.ngf
-    hypers['netG_blocks'] = args.CUT.netG.params.n_blocks
-    hypers['netD_nc'] = args.CUT.netD.params.ndf
-    hypers['netD_layers'] = args.CUT.netD.params.n_layers
-    hypers['netF_nc'] = args.CUT.netF.params.nc
-    hypers['netF.patches'] = args.CUT.netF.params.num_patches
-    return hypers
+    hyparam = dict(CUT=args.CUT.apply, iterative=args.CUT.iterative,
+                   CUT_NCE_weight=args.CUT.lambda_NCE / args.CUT.lambda_GAN,
+                   CUT_update_freq=args.CUT.update_freq,
+                   CUT_confidence=args.CLASSIFIER.confidence_CUT,
+                   batch_size=args.CLASSIFIER.batch_size,
+                   self_training=args.CLASSIFIER.self_training,
+                   self_training_confidence=args.CLASSIFIER.confidence_selfTraining,
+                   self_training_fresh_freq=args.CLASSIFIER.refresh_selftraining)
+    return hyparam
 
 
 def get_class(x):
