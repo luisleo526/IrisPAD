@@ -58,7 +58,7 @@ def main(args):
                    config=args)
         wandb.define_metric("acer/*", summary="min")
         wandb.define_metric("acc/*", summary="max")
-        wandb.define_metric("*loss*", summary="min")
+        wandb.define_metric("loss/*", summary="min")
 
     loaders, paths, vocab = make_data_loader(args, accelerator)
     paths_from_train = Munch(label_0=[], label_1=[])
