@@ -83,9 +83,8 @@ class CUT(nn.Module):
         loss_D = self.netD_loss()
         loss_G, loss_F = self.netGF_loss()
         output = Munch(lossG=loss_G, lossF=loss_F, lossD=loss_D,
-                       real=real_img, fake=fake_img,
-                       realPIL=[ToPILImage()(x) for x in real_img],
-                       fakePIL=[ToPILImage()(x) for x in fake_img])
+                       real=[ToPILImage()(x) for x in real_img], 
+                       fake=[ToPILImage()(x) for x in fake_img])
 
         return output
 
