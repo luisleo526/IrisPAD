@@ -222,7 +222,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         for net in ['netD', 'netG', 'netF']:
                             scheduler = nets[name].optimizers[net].scheduler
                             if "metrics" in list(inspect.signature(scheduler.step).parameters):
-                                scheduler.step(metrics=results[name][loss_dict[net]])
+                                scheduler.step(metrics=results[f"CUT/{cut_labels[name]}/{loss_dict[net]}"])
                             else:
                                 scheduler.step()
 
