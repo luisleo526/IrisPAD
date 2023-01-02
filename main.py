@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--yaml", type=str, default="config.yaml")
-    parser.add_argument("--train",type=str, nargs='+', default=[])
+    parser.add_argument("--train",type=str, nargs='+', default=[], choices=['all', 'IIIT_WVU', 'NotreDame', 'Clarkson'])
     args = parser.parse_args()
     return args
 
@@ -103,8 +103,6 @@ if __name__ == '__main__':
 
     if opts.train == ['all']:
         opts.train = ["NotreDame", "IIIT_WVU", "Clarkson"]
-    print(opts.train)
-    exit()
 
     print(f"Loading {opts.yaml} ...")
 
