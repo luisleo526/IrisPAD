@@ -126,7 +126,7 @@ CUT:
   batch_size: 4
   apply: True
   iterative: True
-  update_freq: 3
+  update_freq: 5
   flip_equivariance: False
   lambda_GAN: 1.0
   lambda_NCE: 1.0
