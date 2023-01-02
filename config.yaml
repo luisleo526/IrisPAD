@@ -1,5 +1,5 @@
 GENERAL:
-  name: IPAD
+  name: IIIT_WVU
   seed: 47
   rgb: False
   resolution: &resolution [ 256, 256 ]
@@ -123,7 +123,7 @@ CLASSIFIER:
     init_gain: 0.02
 
 CUT:
-  batch_size: 16
+  batch_size: 4
   apply: True
   iterative: True
   update_freq: 3
