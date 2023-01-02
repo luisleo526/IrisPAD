@@ -51,8 +51,8 @@ def main(args):
     )
     logger.info(accelerator.state, main_process_only=False)
     if accelerator.is_main_process:
-        name = f"{socket.gethostname()}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-        wandb.init(project=args.GENERAL.name, entity="luisleo", name=name, config=args)
+        args["host"] = socket.gethostname()
+        wandb.init(project=args.GENERAL.name, entity="luisleo", config=args)
         wandb.define_metric("acer/*", summary="min")
         wandb.define_metric("acc/*", summary="max")
         wandb.define_metric("loss/*", summary="min")

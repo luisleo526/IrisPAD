@@ -22,12 +22,12 @@ GENERAL:
           - /data/dataset/LivDet2017/IIIT_WVU/test
           - /data/dataset/LivDet2017/NotreDame/train
           - /data/dataset/LivDet2017/NotreDame/test
-      NotreDame:
+      IIIT_WVU:
         config:
           skip: False
           selftraining: False
         paths:
-          - /data/dataset/LivDet2017/NotreDame/train
+          - /data/dataset/LivDet2017/IIIT_WVU/train
     test:
       Clarkson:
         config:

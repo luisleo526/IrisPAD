@@ -241,6 +241,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 
 
 def run_pretrain(args, loaders, nets, accelerator: Accelerator, num_epoch: int, tqdm_no_progress: bool):
+
     if accelerator.is_main_process:
         wandb.define_metric("pretrain_step")
         wandb.define_metric("SimCLR-loss", step_metric="pretrain_step")
