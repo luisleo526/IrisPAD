@@ -103,7 +103,7 @@ def make_gan_loader(args, a_path, b_path, accelerator: Accelerator):
 
     return accelerator.prepare_data_loader(
         ThreadDataLoader(ZipDataset(a_path + b_path), batch_size=1, collate_fn=collator,
-                         shuffle=True, pin_memory=True))
+                         shuffle=True, pin_memory=False))
 
 
 def prepare_image_path(args):

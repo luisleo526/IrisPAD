@@ -177,7 +177,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
             else:
                 scheduler.step()
 
-        if use_gan and train_gan:
+        if use_gan and train_gan and step > 10:
 
             # prepare data for gan
             paths_from_test.label_0 = vocab.index2word(paths_from_test.label_0)
