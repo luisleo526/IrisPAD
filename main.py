@@ -65,12 +65,12 @@ def main(args):
             paths_from_train.label_1.extend(data.label_1)
 
     nets = get_all_networks(args, accelerator)
-    if accelerator.is_main_process:
-        wandb.watch(models=nets.classifier.model, idx=0, log='all', log_freq=100)
-        if use_gan:
-            wandb.watch(models=nets.cut.model, idx=1, log='all', log_freq=100)
-            if iterative:
-                wandb.watch(models=nets.cut2.model, idx=2, log='all', log_freq=100)
+    # if accelerator.is_main_process:
+    #     wandb.watch(models=nets.classifier.model, idx=0, log='all', log_freq=100)
+    #     if use_gan:
+    #         wandb.watch(models=nets.cut.model, idx=1, log='all', log_freq=100)
+    #         if iterative:
+    #             wandb.watch(models=nets.cut2.model, idx=2, log='all', log_freq=100)
     accelerator.wait_for_everyone()
 
     if args.CLASSIFIER.pretrain.apply:
