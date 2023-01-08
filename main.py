@@ -2,9 +2,9 @@ import logging
 import socket
 import warnings
 from argparse import ArgumentParser
-from datetime import datetime
 
 import torch
+import wandb
 import yaml
 from accelerate import Accelerator
 from accelerate import DistributedDataParallelKwargs as ddp_kwargs
@@ -13,7 +13,6 @@ from accelerate.utils import set_seed
 from munch import Munch
 from tqdm.auto import tqdm
 
-import wandb
 from dataset.datasets import make_data_loader
 from model.create_networks import get_all_networks
 from trainer import run, run_pretrain
@@ -25,7 +24,8 @@ logger = get_logger(__name__)
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--yaml", type=str, default="config.yaml")
-    parser.add_argument("--train",type=str, nargs='+', default=[], choices=['all', 'IIIT_WVU', 'NotreDame', 'Clarkson'])
+    parser.add_argument("--train", type=str, nargs='+', default=[],
+                        choices=['all', 'IIIT_WVU', 'NotreDame', 'Clarkson'])
     args = parser.parse_args()
     return args
 
@@ -65,12 +65,6 @@ def main(args):
             paths_from_train.label_1.extend(data.label_1)
 
     nets = get_all_networks(args, accelerator)
-    # if accelerator.is_main_process:
-    #     wandb.watch(models=nets.classifier.model, idx=0, log='all', log_freq=100)
-    #     if use_gan:
-    #         wandb.watch(models=nets.cut.model, idx=1, log='all', log_freq=100)
-    #         if iterative:
-    #             wandb.watch(models=nets.cut2.model, idx=2, log='all', log_freq=100)
     accelerator.wait_for_everyone()
 
     if args.CLASSIFIER.pretrain.apply:
