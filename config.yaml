@@ -3,6 +3,7 @@ GENERAL:
   seed: 47
   rgb: False
   resolution: &resolution [ 256, 256 ]
+  accumulation_steps: 2
   max_epochs: 600
   milestones: 30
   truncate: 30
@@ -49,7 +50,7 @@ CLASSIFIER:
   confidence_selfTraining: 0.9
   confidence_CUT: 0.8
   refresh_selftraining: 10
-  batch_size: 16
+  batch_size: 64
   pad_token_id: -1
   self_training: False
   pretrain:
@@ -129,7 +130,7 @@ CUT:
   update_freq: 5
   flip_equivariance: False
   lambda_GAN: 1.0
-  lambda_NCE: 1.0
+  lambda_NCE: 0.25
   nce_layers: [ 0,4,8,12,16,20 ]
   nce_T: 0.07
   nce_idt: True

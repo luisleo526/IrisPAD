@@ -59,10 +59,12 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
 
                         for data in [batch, new_batch]:
                             if data is not None:
-                                outputs = nets.classifier.model(data)
-                                accelerator.backward(outputs.loss)
-                                nets.classifier.optimizers.optim.step()
-                                nets.classifier.optimizers.optim.zero_grad()
+                                
+                                with accelerator.accumulate(nets.classifier.model):
+                                    outputs = nets.classifier.model(data)
+                                    accelerator.backward(outputs.loss)
+                                    nets.classifier.optimizers.optim.step()
+                                    nets.classifier.optimizers.optim.zero_grad()
 
                                 pred, tgt, loss = accelerator.gather_for_metrics(
                                     (outputs.pred, data['label'], outputs.loss.detach()))
@@ -104,10 +106,12 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                             for batch in _make_data_loader(args,
                                                            accelerator, vocab, label_0=label_0, label_1=label_1,
                                                            use_augmentation=True):
-                                outputs = nets.classifier.model(batch)
-                                accelerator.backward(outputs.loss)
-                                nets.classifier.optimizers.optim.step()
-                                nets.classifier.optimizers.optim.zero_grad()
+                                
+                                with accelerator.accumulate(nets.classifier.model):
+                                    outputs = nets.classifier.model(batch)
+                                    accelerator.backward(outputs.loss)
+                                    nets.classifier.optimizers.optim.step()
+                                    nets.classifier.optimizers.optim.zero_grad()
 
                                 pred, tgt, loss = accelerator.gather_for_metrics(
                                     (outputs.pred, batch['label'], outputs.loss.detach()))
@@ -186,7 +190,9 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                     results[f"CUT/{cut_labels[name]}/lossF"] = 0
                     nets[name].model.train()
                     for batch in loader:
-                        outputs = nets[name].model(batch)
+                        with accelerator.accumulate(nets[name].model):
+                            outputs = nets[name].model(batch)
+                            
                         accelerator.backward(outputs.lossD + outputs.lossG + outputs.lossF)
                         lossG, lossD, lossF = accelerator.gather((outputs.lossG.detach(),
                                                                   outputs.lossD.detach(),

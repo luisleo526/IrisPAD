@@ -39,10 +39,12 @@ def main(args):
     self_training = args.CLASSIFIER.self_training
 
     accelerator = Accelerator(step_scheduler_with_optimizer=False,
+                              gradient_accumulation_steps=args.GENERAL.accumulation_steps,
                               kwargs_handlers=[ddp_kwargs(find_unused_parameters=args.CLASSIFIER.pretrain.apply)])
 
-    args.CLASSIFIER.equiv_batch_size = args.CLASSIFIER.batch_size * accelerator.num_processes
-    args.CUT.equiv_batch_size = args.CUT.batch_size * accelerator.num_processes
+    multiplier = accelerator.num_processes * args.GENERAL.accumulation_steps
+    args.CLASSIFIER.equiv_batch_size = multiplier * args.CLASSIFIER.batch_size
+    args.CUT.equiv_batch_size = multiplier * args.CUT.batch_size
 
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
