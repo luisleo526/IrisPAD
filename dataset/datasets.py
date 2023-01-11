@@ -1,6 +1,7 @@
 import imghdr
 import math
 from typing import List
+import os
 
 import torch
 from accelerate import Accelerator
@@ -113,7 +114,7 @@ def prepare_image_path(args):
         for name in args.GENERAL.data[mode]:
             paths[mode].update({name: Munch(label_0=[], label_1=[])})
             for path in args.GENERAL.data[mode][name].paths:
-                path_0, path_1 = path_by_label(path)
+                path_0, path_1 = path_by_label(os.path.join(args.GENERAL.data_root, path))
                 vocab.word2index(path_0 + path_1, True)
                 paths[mode][name].label_0 += path_0
                 paths[mode][name].label_1 += path_1

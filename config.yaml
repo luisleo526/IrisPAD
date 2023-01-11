@@ -8,43 +8,44 @@ GENERAL:
   milestones: 30
   truncate: 30
   warmup: 60
+  data_root: /data/dataset
   data:
     pretrain:
-      - /data/dataset/LivDet2017
+      - LivDet2017
     train:
       SelfTraining:
         config:
           skip: False
           selftraining: True
         paths:
-          # - /data/dataset/LivDet2017/Clarkson/train
-          - /data/dataset/LivDet2017/Clarkson/test
-          - /data/dataset/LivDet2017/IIIT_WVU/train
-          - /data/dataset/LivDet2017/IIIT_WVU/test
-          - /data/dataset/LivDet2017/NotreDame/train
-          - /data/dataset/LivDet2017/NotreDame/test
+          # - LivDet2017/Clarkson/train
+          - LivDet2017/Clarkson/test
+          - LivDet2017/IIIT_WVU/train
+          - LivDet2017/IIIT_WVU/test
+          - LivDet2017/NotreDame/train
+          - LivDet2017/NotreDame/test
       IIIT_WVU:
         config:
           skip: False
           selftraining: False
         paths:
-          - /data/dataset/LivDet2017/IIIT_WVU/train
+          - LivDet2017/IIIT_WVU/train
     test:
       Clarkson:
         config:
           gan: True
         paths:
-          - /data/dataset/LivDet2017/Clarkson/test
+          - LivDet2017/Clarkson/test
       IIIT_WVU:
         config:
           gan: True
         paths:
-          - /data/dataset/LivDet2017/IIIT_WVU/test
+          - LivDet2017/IIIT_WVU/test
       NotreDame:
         config:
           gan: True
         paths:
-          - /data/dataset/LivDet2017/NotreDame/test
+          - LivDet2017/NotreDame/test
 
 CLASSIFIER:
   confidence_selfTraining: 0.9

@@ -1,4 +1,5 @@
 import imghdr
+import os 
 
 import torch
 from torch.utils.data import Dataset
@@ -10,9 +11,9 @@ from .transforms import MultiCropTransform
 class MultiCropDataset(Dataset):
     def __init__(self, args):
         self.samples = []
-        for path in args.GENERAL.data.pretrain:
+        for directory in args.GENERAL.data.pretrain:
             self.samples.extend([path for path, label in
-                                 make_dataset(path, find_classes(path)[1], None, lambda x: imghdr.what(x) is not None)])
+                                 make_dataset(os.path.join(args.GENERAL.data_root,directory), find_classes(path)[1], None, lambda x: imghdr.what(x) is not None)])
         self.transform = MultiCropTransform(args)
 
     def __len__(self):
