@@ -212,11 +212,11 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                             else:
                                 scheduler.step()
 
-                    if accelerator.is_main_process:
-                        table = wandb.Table(columns=["Real-Image", "Fake-Image"], allow_mixed_types=True)
-                        table.add_data([wandb.Image(x) for x in outputs.real],
-                                       [wandb.Image(x) for x in outputs.fake])
-                        results[f"CUT/Samples/{cut_labels[name]}"] = table
+                    # if accelerator.is_main_process:
+                    #     table = wandb.Table(columns=["Real-Image", "Fake-Image"], allow_mixed_types=True)
+                    #     table.add_data([wandb.Image(x) for x in outputs.real],
+                    #                    [wandb.Image(x) for x in outputs.fake])
+                    #     results[f"CUT/Samples/{cut_labels[name]}"] = table
             else:
                 accelerator.print("Imblance data configuration, skip CUT training...")
 
