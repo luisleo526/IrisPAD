@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 
 from dataset.datasets import make_data_loader
 from model.create_networks import get_all_networks
-from trainer import run, run_pretrain
+from train_funcs.trainer import run, run_pretrain
 
 logger = get_logger(__name__)
 

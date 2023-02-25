@@ -8,7 +8,7 @@ GENERAL:
   milestones: 30
   truncate: 30
   warmup: 60
-  data_root: /data/dataset
+  data_root: /home/leo/data
   data:
     pretrain:
       - LivDet2017

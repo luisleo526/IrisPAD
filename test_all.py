@@ -26,8 +26,8 @@ if __name__ == '__main__':
     if opts.train == ['all']:
         opts.train = ["NotreDame", "IIIT_WVU", "Clarkson"]
 
-    print(f"Loading {opts.yaml} ...")
-    with open(opts.yaml, "r") as stream:
+    print(f"Loading {opts.config} ...")
+    with open(opts.config, "r") as stream:
         args = Munch.fromDict(yaml.load(stream, Loader=yaml.FullLoader))
 
     config = None

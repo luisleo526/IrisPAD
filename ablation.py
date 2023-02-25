@@ -38,8 +38,8 @@ if __name__ == '__main__':
     params['Clarkson']['NotreDame'] = {'bs': 256, 'lambda': 0.25}
     params['Clarkson']['Clarkson'] = {'bs': 128, 'lambda': 2.0}
 
-    print(f"Loading {opts.yaml} ...")
-    with open(opts.yaml, "r") as stream:
+    print(f"Loading {opts.config} ...")
+    with open(opts.config, "r") as stream:
         args = Munch.fromDict(yaml.load(stream, Loader=yaml.FullLoader))
 
     for train in ds:
