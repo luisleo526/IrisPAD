@@ -82,7 +82,10 @@ class Classifier(nn.Module):
 
 
 def get_classifier_networks(args, accelerator: Accelerator):
-    model = Classifier(args).to(accelerator.device)
+    
+    with accelerator.local_main_process_first():
+        model = Classifier(args).to(accelerator.device)
+
     model = SyncBatchNorm.convert_sync_batchnorm(model)
     # model = torch.compile(model)
 
