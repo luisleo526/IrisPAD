@@ -16,6 +16,8 @@ def parse_args():
     parser.add_argument("--config", type=str, default="config.yaml")
     parser.add_argument("--gpu", type=int, default=1, required=True)
     parser.add_argument("--accumulate", type=int, default=1)
+    parser.add_argument("--train", type=str, nargs='+', default=['all'],
+                        choices=['all', 'IIIT_WVU', 'NotreDame', 'Clarkson'])
     args = parser.parse_args()
     return args
 
@@ -41,6 +43,10 @@ if __name__ == '__main__':
     print(f"Loading {opts.config} ...")
     with open(opts.config, "r") as stream:
         args = Munch.fromDict(yaml.load(stream, Loader=yaml.FullLoader))
+
+    train_ds = opts.train
+    if train_ds == ['all']:
+        train_ds = ds
 
     for train in ds:
         args.GENERAL.name = train

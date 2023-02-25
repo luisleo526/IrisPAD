@@ -82,7 +82,7 @@ class Classifier(nn.Module):
 
 
 def get_classifier_networks(args, accelerator: Accelerator):
-    
+
     with accelerator.local_main_process_first():
         model = Classifier(args).to(accelerator.device)
 
