@@ -48,7 +48,9 @@ if __name__ == '__main__':
     if train_ds == ['all']:
         train_ds = ds
 
-    for train in ds:
+    args.GENERAL.accumulation_steps = opts.accumulate
+
+    for train in train_ds:
         args.GENERAL.name = train
         args.GENERAL.data.train = Munch({train: Munch(config=Munch(), paths=[f"LivDet2017/{train}/train"])})
         args.GENERAL.data.train[train].config.skip = False
