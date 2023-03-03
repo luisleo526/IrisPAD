@@ -60,36 +60,38 @@ class CUT(nn.Module):
 
         return total_nce_loss / n_layers
 
-    def forward(self, batch):
+    def forward(self, batch, inference=False):
 
-        self.real_A = batch["a"]
-        self.real_B = batch["b"]
+        if not inference:
+            self.real_A = batch["a"]
+            self.real_B = batch["b"]
 
-        self.real = torch.cat((self.real_A, self.real_B), dim=0) if self.nce_idt else self.real_A
+            self.real = torch.cat((self.real_A, self.real_B), dim=0) if self.nce_idt else self.real_A
 
-        if self.flip_equivariance:
-            self.flipped_for_equivariance = np.random.random() < 0.5
-            if self.flipped_for_equivariance:
-                self.real = torch.flip(self.real, [3])
+            if self.flip_equivariance:
+                self.flipped_for_equivariance = np.random.random() < 0.5
+                if self.flipped_for_equivariance:
+                    self.real = torch.flip(self.real, [3])
 
-        self.fake = self.netG(self.real)
-        self.fake_B = self.fake[:self.real_A.size(0)]
-        if self.nce_idt:
-            self.idt_B = self.fake[self.real_A.size(0):]
+            self.fake = self.netG(self.real)
+            self.fake_B = self.fake[:self.real_A.size(0)]
+            if self.nce_idt:
+                self.idt_B = self.fake[self.real_A.size(0):]
 
-        real_img = (0.5 * batch['a'] + 0.5).detach().cpu().float()
-        fake_img = (0.5 * self.fake_B + 0.5).detach().cpu().float()
+            real_img = (0.5 * batch['a'] + 0.5).detach().cpu().float()
+            fake_img = (0.5 * self.fake_B + 0.5).detach().cpu().float()
 
-        loss_D = self.netD_loss()
-        loss_G, loss_F = self.netGF_loss()
-        output = Munch(lossG=loss_G, lossF=loss_F, lossD=loss_D,
-                       real=[ToPILImage()(x) for x in real_img], 
-                       fake=[ToPILImage()(x) for x in fake_img])
+            loss_D = self.netD_loss()
+            loss_G, loss_F = self.netGF_loss()
+            output = Munch(lossG=loss_G, lossF=loss_F, lossD=loss_D,
+                           real=[ToPILImage()(x) for x in real_img],
+                           fake=[ToPILImage()(x) for x in fake_img])
 
-        return output
+            return output
 
-    def a2b(self, images):
-        return self.netG(images)
+        else:
+
+            return self.netG(batch)
 
     def netD_loss(self):
 

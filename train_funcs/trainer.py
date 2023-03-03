@@ -39,10 +39,10 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                                     nets.cut2.model.eval()
                                     label_0_images = batch['image'][batch['label'] == 0]
                                     label_0_paths = batch['path'][batch['label'] == 0]
-                                    label_0_images = accelerator.unwrap_model(nets.cut.model).a2b(label_0_images)
+                                    label_0_images = nets.cut.model(label_0_images, inference=True)
                                     label_1_images = batch['image'][batch['label'] == 1]
                                     label_1_paths = batch['path'][batch['label'] == 1]
-                                    label_1_images = accelerator.unwrap_model(nets.cut2.model).a2b(label_1_images)
+                                    label_1_images = nets.cut2.model(label_1_images, inference=True)
                                     new_images = torch.cat([label_0_images, label_1_images], dim=0)
                                     new_paths = torch.cat([label_0_paths, label_1_paths], dim=0)
                                     new_labels = torch.cat(
@@ -50,7 +50,7 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                                         dim=0)
                                 else:
                                     nets.cut.model.eval()
-                                    new_images = accelerator.unwrap_model(nets.cut.model).a2b(batch['image'])
+                                    new_images = nets.cut.model(batch['image'], inference=True)
                                     new_labels = batch['labels']
                                     new_paths = batch['path']
                             new_batch = dict(image=new_images, label=new_labels, path=new_paths)
