@@ -20,9 +20,6 @@ if __name__ == '__main__':
 
     opts = parse_args()
 
-    if opts.train == ['all']:
-        opts.train = ["NotreDame", "IIIT_WVU", "Clarkson"]
-
     print(f"Loading {opts.config} ...")
 
     with open(opts.config, "r") as stream:

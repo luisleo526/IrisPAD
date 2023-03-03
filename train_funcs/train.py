@@ -79,3 +79,5 @@ def main(args):
         wandb.finish()
 
     accelerator.wait_for_everyone()
+    accelerator.end_training()
+    accelerator.free_memory()
