@@ -217,6 +217,8 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                     #     table.add_data([wandb.Image(x) for x in outputs.real],
                     #                    [wandb.Image(x) for x in outputs.fake])
                     #     results[f"CUT/Samples/{cut_labels[name]}"] = table
+
+                del gan_lds
             else:
                 accelerator.print("Imblance data configuration, skip CUT training...")
 
