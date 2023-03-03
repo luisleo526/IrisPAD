@@ -193,15 +193,10 @@ def run(args, paths_from_train, paths_for_selftraining, num_epoch: int, step: in
                         with accelerator.accumulate(nets[name].model):
                             outputs = nets[name].model(batch)
                             accelerator.backward(outputs.lossD + outputs.lossG + outputs.lossF)
-                            nets[name].optimizers['netD'].optim.step()
-                            nets[name].optimizers['netD'].optim.zero_grad()
-                            nets[name].optimizers['netG'].optim.step()
-                            nets[name].optimizers['netG'].optim.zero_grad()
-                            nets[name].optimizers['netF'].optim.step()
-                            nets[name].optimizers['netF'].optim.zero_grad()
-                            # for net in ['netD', 'netG', 'netF']:
-                            #     nets[name].optimizers[net].optim.step()
-                            #     nets[name].optimizers[net].optim.zero_grad()
+                            for net in ['netD', 'netG', 'netF']:
+                                nets[name].optimizers[net].optim.step()
+                            for net in ['netD', 'netG', 'netF']:
+                                nets[name].optimizers[net].optim.zero_grad()
 
                         lossG, lossD, lossF = accelerator.gather((outputs.lossG.detach(),
                                                                   outputs.lossD.detach(),
