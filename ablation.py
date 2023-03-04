@@ -18,6 +18,8 @@ def parse_args():
     parser.add_argument("--accumulate", type=int, default=1)
     parser.add_argument("--train", type=str, nargs='+', default=['all'],
                         choices=['all', 'IIIT_WVU', 'NotreDame', 'Clarkson'])
+    parser.add_argument("--test", type=str, nargs='+', default=['all'],
+                        choices=['all', 'IIIT_WVU', 'NotreDame', 'Clarkson'])
     args = parser.parse_args()
     return args
 
@@ -48,6 +50,10 @@ if __name__ == '__main__':
     if train_ds == ['all']:
         train_ds = ds
 
+    test_ds = opts.test
+    if test_ds == ['all']:
+        test_ds = ds
+
     args.GENERAL.accumulation_steps = opts.accumulate
 
     for train in train_ds:
@@ -55,7 +61,7 @@ if __name__ == '__main__':
         args.GENERAL.data.train = Munch({train: Munch(config=Munch(), paths=[f"LivDet2017/{train}/train"])})
         args.GENERAL.data.train[train].config.skip = False
         args.GENERAL.data.train[train].config.selftraining = False
-        for test in ds:
+        for test in test_ds:
             args.GENERAL.data.test = Munch({test: Munch(config=Munch(), paths=[f"LivDet2017/{test}/test"])})
             args.GENERAL.data.test[test].config.gan = True
             args.CLASSIFIER.batch_size = int(params[train][test]['bs'] / opts.gpu / opts.accumulate)
