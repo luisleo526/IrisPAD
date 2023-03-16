@@ -25,21 +25,21 @@ class CUT(nn.Module):
     def __init__(self, args):
         super().__init__()
 
-        self.nce_layers = args.CUT.nce_layers
-        self.mlp_sample = args.CUT.netF.params.use_mlp
-        self.lambda_GAN = args.CUT.lambda_GAN
-        self.lambda_NCE = args.CUT.lambda_NCE
-        self.nce_idt = args.CUT.nce_idt
+        nce_layers = args.CUT.nce_layers
+        mlp_sample = args.CUT.netF.params.use_mlp
+        lambda_GAN = args.CUT.lambda_GAN
+        lambda_NCE = args.CUT.lambda_NCE
+        nce_idt = args.CUT.nce_idt
         # self.num_patches = args.CUT.netF.params.num_patches
-        self.flip_equivariance = args.CUT.flip_equivariance
+        flip_equivariance = args.CUT.flip_equivariance
 
-        self.register_buffer('nce_layers', torch.tensor(self.nce_layers, dtype=torch.int))
-        self.register_buffer('nce_idt', torch.tensor(self.nce_idt, dtype=torch.bool))
-        self.register_buffer('flip_equivariance', torch.tensor(self.flip_equivariance, dtype=torch.bool))
-        self.register_buffer('mlp_sample', torch.tensor(self.mlp_sample, dtype=torch.bool))
+        self.register_buffer('nce_layers', torch.tensor(nce_layers, dtype=torch.int))
+        self.register_buffer('nce_idt', torch.tensor(nce_idt, dtype=torch.bool))
+        self.register_buffer('flip_equivariance', torch.tensor(flip_equivariance, dtype=torch.bool))
+        self.register_buffer('mlp_sample', torch.tensor(mlp_sample, dtype=torch.bool))
 
-        self.register_buffer('lambda_GAN', torch.tensor(self.lambda_GAN, dtype=torch.float))
-        self.register_buffer('lambda_NCE', torch.tensor(self.lambda_NCE, dtype=torch.float))
+        self.register_buffer('lambda_GAN', torch.tensor(lambda_GAN, dtype=torch.float))
+        self.register_buffer('lambda_NCE', torch.tensor(lambda_NCE, dtype=torch.float))
 
         channels = 3 if args.GENERAL.rgb else 1
         self.netG = ResnetGenerator(**args.CUT.netG.params, input_nc=channels, output_nc=channels)
