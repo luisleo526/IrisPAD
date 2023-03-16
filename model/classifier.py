@@ -24,9 +24,14 @@ class Classifier(nn.Module):
             self.model = init_net(self.model, **args.CLASSIFIER.net_init)
 
         self.loss_fn = nn.CrossEntropyLoss(reduction='sum')
-        self.pad_token_id = args.CLASSIFIER.pad_token_id
-        self.confidence_selfTraining = args.CLASSIFIER.confidence_selfTraining
-        self.confidence_CUT = args.CLASSIFIER.confidence_CUT
+
+        pad_token_id = args.CLASSIFIER.pad_token_id
+        confidence_selfTraining = args.CLASSIFIER.confidence_selfTraining
+        confidence_CUT = args.CLASSIFIER.confidence_CUT
+
+        self.register_buffer('pad_token_id', torch.tensor(pad_token_id, dtype=torch.int32))
+        self.register_buffer('confidence_selfTraining', torch.tensor(confidence_selfTraining, dtype=torch.float32))
+        self.register_buffer('confidence_CUT', torch.tensor(confidence_CUT, dtype=torch.float32))
 
         if args.CLASSIFIER.pretrain.apply:
             return_nodes = {}
@@ -82,7 +87,6 @@ class Classifier(nn.Module):
 
 
 def get_classifier_networks(args, accelerator: Accelerator):
-
     with accelerator.local_main_process_first():
         model = Classifier(args).to(accelerator.device)
 
@@ -109,7 +113,7 @@ def get_classifier_networks(args, accelerator: Accelerator):
         scheduler_pretrain = None
         optimizer_pretrain = None
 
-    model, optimizer, scheduler = accelerator.prepare(model, optimizer, scheduler)
+    model, optimizer, scheduler = accelerator.prepare([model, optimizer, scheduler])
 
     return model, Munch(optim=optimizer, optim_pretrain=optimizer_pretrain,
                         scheduler=scheduler, scheduler_pretrain=scheduler_pretrain)

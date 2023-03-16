@@ -30,8 +30,16 @@ class CUT(nn.Module):
         self.lambda_GAN = args.CUT.lambda_GAN
         self.lambda_NCE = args.CUT.lambda_NCE
         self.nce_idt = args.CUT.nce_idt
-        self.num_patches = args.CUT.netF.params.num_patches
+        # self.num_patches = args.CUT.netF.params.num_patches
         self.flip_equivariance = args.CUT.flip_equivariance
+
+        self.register_buffer('nce_layers', torch.tensor(self.nce_layers, dtype=torch.int))
+        self.register_buffer('nce_idt', torch.tensor(self.nce_idt, dtype=torch.bool))
+        self.register_buffer('flip_equivariance', torch.tensor(self.flip_equivariance, dtype=torch.bool))
+        self.register_buffer('mlp_sample', torch.tensor(self.mlp_sample, dtype=torch.bool))
+
+        self.register_buffer('lambda_GAN', torch.tensor(self.lambda_GAN, dtype=torch.float))
+        self.register_buffer('lambda_NCE', torch.tensor(self.lambda_NCE, dtype=torch.float))
 
         channels = 3 if args.GENERAL.rgb else 1
         self.netG = ResnetGenerator(**args.CUT.netG.params, input_nc=channels, output_nc=channels)
@@ -159,7 +167,7 @@ def get_gan_networks(args, accelerator: Accelerator):
     model = accelerator.prepare_model(model)
     for net in ['netD', 'netG', 'netF']:
         optim, scheduler = getattr(optimizers, net).optim, getattr(optimizers, net).scheduler
-        optim, scheduler = accelerator.prepare(optim, scheduler)
+        optim, scheduler = accelerator.prepare([optim, scheduler])
         optim.zero_grad()
         getattr(optimizers, net).update(optim=optim, scheduler=scheduler)
 
