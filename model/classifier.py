@@ -91,7 +91,7 @@ def get_classifier_networks(args, accelerator: Accelerator):
         model = Classifier(args).to(accelerator.device)
 
     model = SyncBatchNorm.convert_sync_batchnorm(model)
-    model = torch.compile(model)
+    model = torch.compile(model, dynamic=True)
 
     if type(args.CLASSIFIER.optimizer.group) == list and len(args.CLASSIFIER.optimizer.group) > 0:
         params_groups = [dict(x) for x in args.CLASSIFIER.optimizer.group]
