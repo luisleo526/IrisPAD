@@ -143,7 +143,7 @@ class CUT(nn.Module):
 def get_gan_networks(args, accelerator: Accelerator):
     model = CUT(args).to(accelerator.device)
     model = SyncBatchNorm.convert_sync_batchnorm(model)
-    model = torch.compile(model, dynamic=True)
+    model = torch.compile(model, **args.TORCH_COMPILE)
 
     B = args.CUT.batch_size
     H, W = args.GENERAL.resolution

@@ -1,3 +1,7 @@
+TORCH_COMPILE:
+  dynamic: False
+
+
 GENERAL:
   name: IIIT_WVU
   seed: 47
