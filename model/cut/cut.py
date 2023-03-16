@@ -143,7 +143,6 @@ class CUT(nn.Module):
 def get_gan_networks(args, accelerator: Accelerator):
     model = CUT(args).to(accelerator.device)
     model = SyncBatchNorm.convert_sync_batchnorm(model)
-    model = torch.compile(model, **args.TORCH_COMPILE)
 
     B = args.CUT.batch_size
     H, W = args.GENERAL.resolution
@@ -152,6 +151,8 @@ def get_gan_networks(args, accelerator: Accelerator):
     with torch.no_grad():
         model.calculate_NCE_loss(sample_batch, sample_batch)
     del sample_batch
+
+    model = torch.compile(model, **args.TORCH_COMPILE)
 
     optimizers = Munch()
     for net in ['netD', 'netG', 'netF']:
