@@ -7,17 +7,17 @@ ds = ['IIIT_WVU', 'NotreDame', 'Clarkson']
 
 params = {d: {dd: {'bs': 0, 'lambda': 0.0} for dd in ds} for d in ds}
 
-params['IIIT_WVU']['IIIT_WVU'] = {'bs': 64, 'lambda': 0.25}
+params['IIIT_WVU']['IIIT_WVU']  = {'bs': 64 , 'lambda': 0.25}
 params['IIIT_WVU']['NotreDame'] = {'bs': 128, 'lambda': 0.75}
-params['IIIT_WVU']['Clarkson'] = {'bs': 512, 'lambda': 1.0}
+params['IIIT_WVU']['Clarkson']  = {'bs': 512, 'lambda': 1.0}
 
-params['NotreDame']['IIIT_WVU'] = {'bs': 512, 'lambda': 0.50}
+params['NotreDame']['IIIT_WVU']  = {'bs': 512, 'lambda': 0.50}
 params['NotreDame']['NotreDame'] = {'bs': 128, 'lambda': 0.25}
-params['NotreDame']['Clarkson'] = {'bs': 512, 'lambda': 0.25}
+params['NotreDame']['Clarkson']  = {'bs': 512, 'lambda': 0.25}
 
-params['Clarkson']['IIIT_WVU'] = {'bs': 256, 'lambda': 2.0}
+params['Clarkson']['IIIT_WVU']  = {'bs': 256, 'lambda': 2.0}
 params['Clarkson']['NotreDame'] = {'bs': 256, 'lambda': 0.25}
-params['Clarkson']['Clarkson'] = {'bs': 128, 'lambda': 2.0}
+params['Clarkson']['Clarkson']  = {'bs': 128, 'lambda': 2.0}
 
 runs = {d: defaultdict(list) for d in ds}
 
